@@ -6,8 +6,8 @@ setup:  ## uv sync (pre-commit hooks added in a later phase)
 probe:  ## run the Phase 1 API discovery probe -> docs/api_probe_raw.md
 	uv run python -m pythia.ingest.client_probe
 
-harvest:  ## Phase 2
-	@echo "harvest: not implemented until Phase 2"
+harvest:  ## Phase 2: harvest catalog metadata -> data/catalog.sqlite
+	uv run python -m pythia.ingest.harvest
 
 index:  ## Phase 3
 	@echo "index: not implemented until Phase 3"
