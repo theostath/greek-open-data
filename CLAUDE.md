@@ -178,7 +178,11 @@ Status legend: [ ] not started · [~] in progress · [x] done
       (`datastore_search`, ~1% of resources, `limit≤32000`) or **file download** (302 → short-lived
       Azure Blob; the common case). `datastore_search_sql` disabled. **Note:** mission §1 says
       ~9,500 datasets; live count is ~21,930.
-- [ ] **Phase 2 — Ingestion:** harvest + normalize all metadata into SQLite w/ provenance.
+- [x] **Phase 2 — Ingestion:** `harvest.py` walks `package_search` → `normalize.py` → SQLite
+      (`db.py`, schema in `ingest/schema.sql`). Harvested **21,806 datasets / 106,678 resources**
+      (124 non-dataset/inactive skipped); `last_updated`=`metadata_modified` on every row. Note:
+      `name` slug is **not unique** upstream (2 collisions) and deep pagination needs an explicit
+      `sort`. Run with `make harvest`.
 - [ ] **Phase 3 — Retrieval:** embeddings, Chroma index, `find_dataset()`, golden set + eval.
 - [ ] **Phase 4 — Planning:** NL → structured query; Greek/Greeklish normalization.
 - [ ] **Phase 5 — Access:** resilient data client + SQLite cache + schema sniffing.

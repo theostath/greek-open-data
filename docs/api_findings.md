@@ -159,6 +159,19 @@ CREATE INDEX idx_resources_dataset ON resources(dataset_id);
 
 ---
 
+## 4b. Harvest result (Phase 2, 2026-06-01)
+
+A full `make harvest` confirmed the above in practice:
+- **21,806 datasets / 106,678 resources** persisted; 124 packages skipped (non-`dataset`
+  type or non-`active` state). `metadata_modified` present on every dataset → no NULL
+  provenance.
+- **`name` (slug) is NOT unique upstream** — 2 slugs are shared across distinct dataset ids.
+  The catalog mirror therefore keys on `id` only and indexes `name` non-uniquely.
+- **Deep offset pagination requires an explicit `sort`** (we use `metadata_modified asc`);
+  without it, paging ~22 pages can drift and skip/duplicate rows.
+- Tabular resources (CSV/JSON/XLS/XLSX): 21,681; `datastore_active`: 1,029 (~1%) — confirms
+  file-download is the primary data path for the MVP.
+
 ## 5. Quirks the harvester/normalizer must handle
 
 1. **`package_list` (22004) > `package_search` count (21930):** the list includes non-dataset
