@@ -1,0 +1,948 @@
+{
+  "help": "https://data.gov.gr/api/3/action/help_show?name=package_search",
+  "success": true,
+  "result": {
+    "count": 21930,
+    "facets": {},
+    "results": [
+      {
+        "access_rights": "http://publications.europa.eu/resource/authority/access-right/PUBLIC",
+        "applicable_legislation": [
+          "https://eur-lex.europa.eu/eli/dir/2019/1024/oj/eng"
+        ],
+        "author": null,
+        "author_email": null,
+        "creator_user_id": "ddbcbe10-4cc7-4074-94b1-b3b98890cc35",
+        "dcat_type": [],
+        "frequency": "",
+        "hvd_category": [],
+        "id": "2132c528-9cd0-4d58-a63f-24dc7f877e39",
+        "isopen": false,
+        "landing_page": [],
+        "language_options": [],
+        "license_id": null,
+        "license_title": null,
+        "maintainer": null,
+        "maintainer_email": null,
+        "metadata_created": "2026-05-20T13:53:34.277287",
+        "metadata_modified": "2026-06-01T13:34:46.086927",
+        "name": "piraeus-enviromental-measurements",
+        "notes": "Περιβαλλοντικές μετρήσεις",
+        "notes_translated": {
+          "el": "Περιβαλλοντικές μετρήσεις",
+          "en": "Enviromental measurements"
+        },
+        "num_resources": 5,
+        "num_tags": 0,
+        "organization": {
+          "id": "13237b28-713a-4ef6-94ad-8d6e5d1c05b8",
+          "name": "dimospeiraia",
+          "title": "Δήμος Πειραιά",
+          "type": "organization",
+          "description": "ΔΗΜΟΣ ΠΕΙΡΑΙΑ - ΔΡΑΓΑΤΣΗ 12 ΠΕΙΡΑΙΑΣ - Τ.Κ. 18535 - ΤΗΛ. 2132022000",
+          "image_url": "2025-11-17-102759.905177peiraiaslogo.jpg",
+          "created": "2025-11-17T10:27:59.435763",
+          "is_organization": true,
+          "approval_status": "approved",
+          "state": "active"
+        },
+        "owner_org": "13237b28-713a-4ef6-94ad-8d6e5d1c05b8",
+        "private": false,
+        "state": "active",
+        "theme": [
+          "http://publications.europa.eu/resource/authority/data-theme/ENVI"
+        ],
+        "title": "Περιβαλλοντικές μετρήσεις",
+        "title_translated": {
+          "el": "Περιβαλλοντικές μετρήσεις",
+          "en": "Enviromental measurements"
+        },
+        "type": "dataset",
+        "url": null,
+        "contact": [
+          {
+            "email": "",
+            "name": "",
+            "uri": "",
+            "url": ""
+          }
+        ],
+        "creator": [
+          {
+            "description": "",
+            "email": "",
+            "identifier": "",
+            "name": "",
+            "type": "",
+            "uri": "",
+            "url": ""
+          }
+        ],
+        "publisher": [
+          {
+            "description": "",
+            "email": "",
+            "identifier": "",
+            "name": "",
+            "type": "",
+            "uri": "",
+            "url": ""
+          }
+        ],
+        "resources": [
+          {
+            "access_url": "https://city.piraeus.gov.gr/gis/api/env/stations?municipalityId=50",
+            "applicable_legislation": [],
+            "archiver": {
+              "resource_timestamp": null,
+              "status_id": 0,
+              "is_broken": false,
+              "reason": "",
+              "url_redirected_to": null,
+              "cache_filepath": "stations",
+              "cache_url": "https://data.gov.gr/cached/74/74bf7d6c-4140-4b07-b0e5-8992cdb84e3a/stations",
+              "size": 1973,
+              "mimetype": "application/json",
+              "hash": "2681d212ec36d2748a7aa5d669f3fff6d3b38800",
+              "etag": null,
+              "last_modified": null,
+              "first_failure": null,
+              "last_success": "2026-05-29T16:27:34.524211",
+              "failure_count": 0,
+              "created": "2026-05-29T16:27:34.532852",
+              "updated": "2026-05-29T16:27:34.524211",
+              "status": "Archived successfully",
+              "is_broken_printable": "Downloaded OK"
+            },
+            "availability": "",
+            "cache_last_updated": null,
+            "cache_url": null,
+            "created": "2026-05-20T13:55:03.386872",
+            "datastore_active": false,
+            "datastore_contains_all_records_of_source_file": false,
+            "description": "",
+            "description_translated": {
+              "el": "",
+              "en": ""
+            },
+            "download_url": "https://city.piraeus.gov.gr/gis/api/env/stations?municipalityId=50",
+            "format": "JSON",
+            "hash": "",
+            "id": "74bf7d6c-4140-4b07-b0e5-8992cdb84e3a",
+            "language_options": [],
+            "last_modified": null,
+            "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0",
+            "metadata_modified": "2026-06-01T13:34:46.094725",
+            "mimetype": "https://www.iana.org/assignments/media-types/application/json",
+            "mimetype_inner": null,
+            "name": "Τοποθεσίες",
+            "name_translated": {
+              "el": "Τοποθεσίες",
+              "en": "Locations"
+            },
+            "package_id": "2132c528-9cd0-4d58-a63f-24dc7f877e39",
+            "position": 0,
+            "qa": {
+              "resource_timestamp": null,
+              "archival_timestamp": "2026-05-29T16:27:34.524211",
+              "openness_score": 3,
+              "openness_score_reason": "Resource has open license: http://publications.europa.eu/resource/authority/licence/CC_BY_4_0",
+              "format": "JSON",
+              "mqa_score": "67.3",
+              "mqa_findability_score": 30,
+              "mqa_accessibility_score": "60.0",
+              "mqa_interoperability_score": "110.0",
+              "mqa_reusability_score": "55.0",
+              "mqa_contextuality_score": "17.5",
+              "created": "2026-05-20T13:55:05.362426",
+              "updated": "2026-06-01T13:34:49.391853"
+            },
+            "resource_type": null,
+            "rights": "Τα δεδομένα διατίθενται υπό την άδεια : Creative Commons Attribution 4.0 International",
+            "size": 1,
+            "state": "active",
+            "tracking_summary": {
+              "total": 0,
+              "recent": 0
+            },
+            "url": "https://city.piraeus.gov.gr/gis/api/scientact/stations?municipalityId=50",
+            "url_type": "",
+            "access_services": [
+              {
+                "uri": ""
+              }
+            ]
+          },
+          {
+            "access_url": "dummy-value",
+            "archiver": {
+              "resource_timestamp": null,
+              "status_id": 21,
+              "is_broken": null,
+              "reason": "Resource is a Download All ZIP resource",
+              "url_redirected_to": null,
+              "cache_filepath": null,
+              "cache_url": null,
+              "size": 0,
+              "mimetype": null,
+              "hash": null,
+              "etag": null,
+              "last_modified": null,
+              "first_failure": "2026-05-29T16:27:34.571091",
+              "last_success": null,
+              "failure_count": 1,
+              "created": "2026-05-29T16:27:34.575144",
+              "updated": "2026-05-29T16:27:34.571091",
+              "status": "Chose not to download",
+              "is_broken_printable": "Not sure if broken"
+            },
+            "cache_last_updated": null,
+            "cache_url": null,
+            "created": "2026-05-20T13:58:56.678254",
+            "datastore_active": false,
+            "datastore_contains_all_records_of_source_file": false,
+            "description": "",
+            "description_translated": {},
+            "download_url": "dummy-value",
+            "downloadall_datapackage_hash": "4a76682e6e5404435234840227fe9888",
+            "downloadall_metadata_modified": "2026-05-27T10:13:12.005162",
+            "format": "ZIP",
+            "hash": "",
+            "id": "c5fed4fd-da69-44bb-98f1-b3dc0ee9db0b",
+            "language_options": [],
+            "last_modified": "2026-05-30T20:58:58.478643",
+            "metadata_modified": "2026-06-01T13:34:46.094839",
+            "mimetype_inner": null,
+            "name": "Όλα τα δεδομένα πόρων",
+            "name_translated": {
+              "en": "All resource data",
+              "el": "Όλα τα δεδομένα πόρων"
+            },
+            "package_id": "2132c528-9cd0-4d58-a63f-24dc7f877e39",
+            "position": 1,
+            "qa": {
+              "resource_timestamp": null,
+              "archival_timestamp": "2026-05-29T16:27:34.571091",
+              "openness_score": 0,
+              "openness_score_reason": "License not open",
+              "format": "ZIP",
+              "mqa_score": null,
+              "mqa_findability_score": null,
+              "mqa_accessibility_score": null,
+              "mqa_interoperability_score": null,
+              "mqa_reusability_score": null,
+              "mqa_contextuality_score": null,
+              "created": "2026-05-31T12:49:54.564634",
+              "updated": "2026-06-01T13:34:02.820690"
+            },
+            "resource_type": null,
+            "size": 2128,
+            "state": "active",
+            "tracking_summary": {
+              "total": 0,
+              "recent": 0
+            },
+            "url": "https://data.gov.gr/dataset/2132c528-9cd0-4d58-a63f-24dc7f877e39/resource/c5fed4fd-da69-44bb-98f1-b3dc0ee9db0b/download/piraeus-enviromental-measurements-ssqh_31s.zip",
+            "url_type": "upload"
+          },
+          {
+            "access_url": "https://data.gov.gr/el/dataset/piraeus-enviromental-measurements",
+            "applicable_legislation": [],
+            "archiver": {
+              "resource_timestamp": null,
+              "status_id": 0,
+              "is_broken": false,
+              "reason": "",
+              "url_redirected_to": "https://min01rg96sablob01.blob.core.windows.net/new-opendata/resources/90f6080d-5c92-4960-9b7a-90ae5d8a4f3e/piraeus-enviromental-measurements-2026-05-26.csv?se=2026-05-29T17%3A27%3A34Z&sp=r&sv=2024-08-04&sr=b&sig=59NLQcIMvq7Q52h4JIAj/6wylGzSo4xLE2Itlc%2BhY6Q%3D",
+              "cache_filepath": "piraeus-enviromental-measurements-2026-05-26.csv",
+              "cache_url": "https://data.gov.gr/cached/90/90f6080d-5c92-4960-9b7a-90ae5d8a4f3e/piraeus-enviromental-measurements-2026-05-26.csv",
+              "size": 463,
+              "mimetype": "application/octet-stream",
+              "hash": "dd1e7695724b515ebb7ba93daadc6be816fecef9",
+              "etag": null,
+              "last_modified": null,
+              "first_failure": null,
+              "last_success": "2026-05-29T16:27:34.985862",
+              "failure_count": 0,
+              "created": "2026-05-29T16:27:34.989221",
+              "updated": "2026-05-29T16:27:34.985862",
+              "status": "Archived successfully",
+              "is_broken_printable": "Downloaded OK"
+            },
+            "availability": "",
+            "cache_last_updated": null,
+            "cache_url": null,
+            "created": "2026-05-20T13:58:59.762053",
+            "datastore_active": true,
+            "datastore_contains_all_records_of_source_file": false,
+            "description": "",
+            "description_translated": {
+              "el": "",
+              "en": ""
+            },
+            "download_url": "https://data.gov.gr/el/dataset/piraeus-enviromental-measurements",
+            "format": "CSV",
+            "hash": "c4d159b7683ac766a32f91107e867f48",
+            "id": "90f6080d-5c92-4960-9b7a-90ae5d8a4f3e",
+            "language_options": [],
+            "last_modified": "2026-05-20T13:58:59.715061",
+            "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0",
+            "metadata_modified": "2026-06-01T13:34:46.094901",
+            "mimetype": "https://www.iana.org/assignments/media-types/text/csv",
+            "mimetype_inner": null,
+            "name": "Τοποθεσίες",
+            "name_translated": {
+              "el": "Τοποθεσίες",
+              "en": "Locations"
+            },
+            "package_id": "2132c528-9cd0-4d58-a63f-24dc7f877e39",
+            "position": 2,
+            "qa": {
+              "resource_timestamp": null,
+              "archival_timestamp": "2026-05-29T16:27:34.985862",
+              "openness_score": 3,
+              "openness_score_reason": "Resource has open license: http://publications.europa.eu/resource/authority/licence/CC_BY_4_0",
+              "format": "CSV",
+              "mqa_score": null,
+              "mqa_findability_score": null,
+              "mqa_accessibility_score": null,
+              "mqa_interoperability_score": null,
+              "mqa_reusability_score": null,
+              "mqa_contextuality_score": null,
+              "created": "2026-05-31T12:49:54.513562",
+              "updated": "2026-06-01T13:34:02.821470"
+            },
+            "resource_type": null,
+            "rights": "Τα δεδομένα διατίθενται υπό την άδεια : Creative Commons Attribution 4.0 International",
+            "state": "active",
+            "tracking_summary": {
+              "total": 0,
+              "recent": 0
+            },
+            "url": "https://data.gov.gr/dataset/2132c528-9cd0-4d58-a63f-24dc7f877e39/resource/90f6080d-5c92-4960-9b7a-90ae5d8a4f3e/download/piraeus-enviromental-measurements-2026-05-26.csv",
+            "url_type": "upload",
+            "access_services": [
+              {
+                "uri": ""
+              }
+            ]
+          },
+          {
+            "access_url": "https://city.piraeus.gov.gr/gis/api/scientact/opendata/measurements?from=1777334400&to=1780012799&page=1&pageSize=1000",
+            "applicable_legislation": [],
+            "availability": "",
+            "cache_last_updated": null,
+            "cache_url": null,
+            "created": "2026-06-01T13:27:07.749988",
+            "datastore_active": false,
+            "datastore_contains_all_records_of_source_file": false,
+            "description": "",
+            "description_translated": {
+              "el": "",
+              "en": ""
+            },
+            "download_url": "https://city.piraeus.gov.gr/gis/api/scientact/opendata/measurements?from=1777334400&to=1780012799&page=1&pageSize=1000",
+            "format": "JSON",
+            "hash": "",
+            "id": "52cd7cc8-97ff-4c78-baf6-8b1fd8076444",
+            "language_options": [],
+            "last_modified": null,
+            "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0",
+            "metadata_modified": "2026-06-01T13:33:23.826173",
+            "mimetype": "https://www.iana.org/assignments/media-types/application/json",
+            "mimetype_inner": null,
+            "name": "Μετρήσεις",
+            "name_translated": {
+              "el": "Μετρήσεις",
+              "en": "Metrics"
+            },
+            "package_id": "2132c528-9cd0-4d58-a63f-24dc7f877e39",
+            "position": 3,
+            "resource_type": null,
+            "rights": "Τα δεδομένα διατίθενται υπό την άδεια : Creative Commons Attribution 4.0 International",
+            "size": 1,
+            "state": "active",
+            "tracking_summary": {
+              "total": 0,
+              "recent": 0
+            },
+            "url": "https://city.piraeus.gov.gr/gis/api/scientact/opendata/measurements?from=1777334400&to=1780012799&page=1&pageSize=1000",
+            "url_type": "",
+            "access_services": [
+              {
+                "uri": ""
+              }
+            ]
+          },
+          {
+            "access_url": "https://data.gov.gr/dataset/piraeus-enviromental-measurements",
+            "applicable_legislation": [],
+            "availability": "",
+            "cache_last_updated": null,
+            "cache_url": null,
+            "ckan_url": "https://data.gov.gr",
+            "created": "2026-06-01T13:33:23.831020",
+            "datastore_active": true,
+            "datastore_contains_all_records_of_source_file": true,
+            "description": "",
+            "description_translated": {
+              "el": "",
+              "en": ""
+            },
+            "download_url": "https://data.gov.gr/dataset/piraeus-enviromental-measurements",
+            "format": "CSV",
+            "hash": "5578c76ce7c7c06bbfdd8e81a7ce6820",
+            "id": "05b79452-9d9c-4cf6-bf8d-56003a879fa2",
+            "ignore_hash": false,
+            "language_options": [],
+            "last_modified": "2026-06-01T13:33:23.755627",
+            "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0",
+            "metadata_modified": "2026-06-01T13:34:46.095012",
+            "mimetype": "https://www.iana.org/assignments/media-types/text/csv",
+            "mimetype_inner": null,
+            "name": "Μετρήσεις",
+            "name_translated": {
+              "el": "Μετρήσεις",
+              "en": "Metrics"
+            },
+            "original_url": "https://data.gov.gr/dataset/2132c528-9cd0-4d58-a63f-24dc7f877e39/resource/05b79452-9d9c-4cf6-bf8d-56003a879fa2/download/scientact_2026_06_01.csv",
+            "package_id": "2132c528-9cd0-4d58-a63f-24dc7f877e39",
+            "position": 4,
+            "resource_id": "05b79452-9d9c-4cf6-bf8d-56003a879fa2",
+            "resource_type": null,
+            "rights": "Τα δεδομένα διατίθενται υπό την άδεια : Creative Commons Attribution 4.0 International",
+            "set_url_type": false,
+            "state": "active",
+            "task_created": "2026-06-01 13:34:02.985544",
+            "tracking_summary": {
+              "total": 0,
+              "recent": 0
+            },
+            "url": "https://data.gov.gr/dataset/2132c528-9cd0-4d58-a63f-24dc7f877e39/resource/05b79452-9d9c-4cf6-bf8d-56003a879fa2/download/scientact_2026_06_01.csv",
+            "url_type": "upload",
+            "access_services": [
+              {
+                "uri": ""
+              }
+            ]
+          }
+        ],
+        "tags": [],
+        "groups": [],
+        "relationships_as_subject": [],
+        "relationships_as_object": [],
+        "organization_card": {
+          "title": "Δήμος Πειραιά",
+          "name": "dimospeiraia",
+          "type": "organization",
+          "is_linkable": true
+        },
+        "tracking_summary": {
+          "total": 18,
+          "recent": 18
+        }
+      },
+      {
+        "access_rights": "http://publications.europa.eu/resource/authority/access-right/PUBLIC",
+        "applicable_legislation": [
+          "https://eur-lex.europa.eu/eli/dir/2019/1024/oj/eng"
+        ],
+        "author": null,
+        "author_email": null,
+        "creator_user_id": "ddbcbe10-4cc7-4074-94b1-b3b98890cc35",
+        "dcat_type": [],
+        "frequency": "",
+        "hvd_category": [],
+        "id": "715585b4-39dd-4f70-a029-051c07bf070d",
+        "isopen": false,
+        "landing_page": [],
+        "language_options": [],
+        "license_id": null,
+        "license_title": null,
+        "maintainer": null,
+        "maintainer_email": null,
+        "metadata_created": "2026-05-28T09:17:42.973169",
+        "metadata_modified": "2026-06-01T12:42:43.640793",
+        "name": "piraeus-smart-parking",
+        "notes": "Ελεγχόμενη Στάθμευση",
+        "notes_translated": {
+          "el": "Ελεγχόμενη Στάθμευση",
+          "en": "Smart Parking"
+        },
+        "num_resources": 3,
+        "num_tags": 0,
+        "organization": {
+          "id": "13237b28-713a-4ef6-94ad-8d6e5d1c05b8",
+          "name": "dimospeiraia",
+          "title": "Δήμος Πειραιά",
+          "type": "organization",
+          "description": "ΔΗΜΟΣ ΠΕΙΡΑΙΑ - ΔΡΑΓΑΤΣΗ 12 ΠΕΙΡΑΙΑΣ - Τ.Κ. 18535 - ΤΗΛ. 2132022000",
+          "image_url": "2025-11-17-102759.905177peiraiaslogo.jpg",
+          "created": "2025-11-17T10:27:59.435763",
+          "is_organization": true,
+          "approval_status": "approved",
+          "state": "active"
+        },
+        "owner_org": "13237b28-713a-4ef6-94ad-8d6e5d1c05b8",
+        "private": false,
+        "state": "active",
+        "theme": [
+          "http://publications.europa.eu/resource/authority/data-theme/REGI",
+          "http://publications.europa.eu/resource/authority/data-theme/TRAN"
+        ],
+        "title": "Ελεγχόμενη Στάθμευση",
+        "title_translated": {
+          "el": "Ελεγχόμενη Στάθμευση",
+          "en": "Smart Parking"
+        },
+        "type": "dataset",
+        "url": null,
+        "contact": [
+          {
+            "email": "",
+            "name": "",
+            "uri": "",
+            "url": ""
+          }
+        ],
+        "creator": [
+          {
+            "description": "",
+            "email": "",
+            "identifier": "",
+            "name": "",
+            "type": "",
+            "uri": "",
+            "url": ""
+          }
+        ],
+        "publisher": [
+          {
+            "description": "",
+            "email": "",
+            "identifier": "",
+            "name": "",
+            "type": "",
+            "uri": "",
+            "url": ""
+          }
+        ],
+        "resources": [
+          {
+            "access_url": "https://city.piraeus.gov.gr/gis/api/smartport/parking/widget/availability/by-location",
+            "applicable_legislation": [],
+            "availability": "",
+            "cache_last_updated": null,
+            "cache_url": null,
+            "created": "2026-05-28T09:19:49.478301",
+            "datastore_active": false,
+            "datastore_contains_all_records_of_source_file": false,
+            "description": "",
+            "description_translated": {
+              "el": "",
+              "en": ""
+            },
+            "download_url": "https://city.piraeus.gov.gr/gis/api/smartport/parking/widget/availability/by-location",
+            "format": "JSON",
+            "hash": "",
+            "id": "77a43996-9468-487a-855d-e3d49bc47ea9",
+            "language_options": [],
+            "last_modified": null,
+            "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0",
+            "metadata_modified": "2026-06-01T12:42:43.648059",
+            "mimetype": "https://www.iana.org/assignments/media-types/application/json",
+            "mimetype_inner": null,
+            "name": "REST Endpoint",
+            "name_translated": {
+              "el": "REST Endpoint",
+              "en": "REST Endpoint"
+            },
+            "package_id": "715585b4-39dd-4f70-a029-051c07bf070d",
+            "position": 0,
+            "qa": {
+              "resource_timestamp": null,
+              "archival_timestamp": null,
+              "openness_score": null,
+              "openness_score_reason": null,
+              "format": null,
+              "mqa_score": "67.9",
+              "mqa_findability_score": 30,
+              "mqa_accessibility_score": "60.0",
+              "mqa_interoperability_score": "110.0",
+              "mqa_reusability_score": "55.0",
+              "mqa_contextuality_score": "20.0",
+              "created": "2026-05-28T09:19:51.559959",
+              "updated": "2026-06-01T12:42:46.046867"
+            },
+            "resource_type": null,
+            "rights": "Τα δεδομένα διατίθενται υπό την άδεια : Creative Commons Attribution 4.0 International",
+            "size": 1,
+            "state": "active",
+            "tracking_summary": {
+              "total": 0,
+              "recent": 0
+            },
+            "url": "https://city.piraeus.gov.gr/gis/api/smartport/opendata/parking?from=1777334400&to=1780012799&page=1&pageSize=1000",
+            "url_type": "",
+            "access_services": [
+              {
+                "uri": ""
+              }
+            ]
+          },
+          {
+            "access_url": "https://data.gov.gr/el/dataset/piraeus-smart-parking",
+            "applicable_legislation": [],
+            "availability": "",
+            "cache_last_updated": null,
+            "cache_url": null,
+            "ckan_url": "https://data.gov.gr",
+            "created": "2026-05-28T09:21:46.531558",
+            "datastore_active": true,
+            "datastore_contains_all_records_of_source_file": true,
+            "description": "",
+            "description_translated": {
+              "el": "",
+              "en": ""
+            },
+            "download_url": "https://data.gov.gr/el/dataset/piraeus-smart-parking",
+            "format": "CSV",
+            "hash": "a309cbf83b12c3bad6321cf2c6560341",
+            "id": "3f16fd6e-5998-4e11-a379-05cacccfc2ce",
+            "ignore_hash": false,
+            "language_options": [],
+            "last_modified": "2026-06-01T12:42:09.041268",
+            "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0",
+            "metadata_modified": "2026-06-01T12:42:43.648174",
+            "mimetype": "https://www.iana.org/assignments/media-types/text/csv",
+            "mimetype_inner": null,
+            "name": "CSV",
+            "name_translated": {
+              "el": "CSV",
+              "en": "CSV"
+            },
+            "original_url": "https://data.gov.gr/dataset/715585b4-39dd-4f70-a029-051c07bf070d/resource/3f16fd6e-5998-4e11-a379-05cacccfc2ce/download/intracom_smartparking_2026_06_01.csv",
+            "package_id": "715585b4-39dd-4f70-a029-051c07bf070d",
+            "position": 1,
+            "resource_id": "3f16fd6e-5998-4e11-a379-05cacccfc2ce",
+            "resource_type": null,
+            "rights": "Τα δεδομένα διατίθενται υπό την άδεια : Creative Commons Attribution 4.0 International",
+            "set_url_type": false,
+            "size": 61396,
+            "state": "active",
+            "task_created": "2026-06-01 12:42:11.568173",
+            "tracking_summary": {
+              "total": 0,
+              "recent": 0
+            },
+            "url": "https://data.gov.gr/dataset/715585b4-39dd-4f70-a029-051c07bf070d/resource/3f16fd6e-5998-4e11-a379-05cacccfc2ce/download/intracom_smartparking_2026_06_01.csv",
+            "url_type": "upload",
+            "access_services": [
+              {
+                "uri": ""
+              }
+            ]
+          },
+          {
+            "access_url": "dummy-value",
+            "cache_last_updated": null,
+            "cache_url": null,
+            "created": "2026-05-30T23:06:23.633513",
+            "datastore_active": false,
+            "datastore_contains_all_records_of_source_file": false,
+            "description": "",
+            "description_translated": {},
+            "download_url": "dummy-value",
+            "downloadall_datapackage_hash": "4b5faa9c625ca24a75bce3c6fadc6262",
+            "downloadall_metadata_modified": "2026-05-28T09:22:47.028652",
+            "format": "ZIP",
+            "hash": "",
+            "id": "bb48a116-1aaa-4a00-8070-84b36a4b9e57",
+            "language_options": [],
+            "last_modified": "2026-05-30T23:06:22.162801",
+            "metadata_modified": "2026-06-01T12:37:10.497225",
+            "mimetype_inner": null,
+            "name": "Όλα τα δεδομένα πόρων",
+            "name_translated": {
+              "en": "All resource data",
+              "el": "Όλα τα δεδομένα πόρων"
+            },
+            "package_id": "715585b4-39dd-4f70-a029-051c07bf070d",
+            "position": 2,
+            "resource_type": null,
+            "size": 1355,
+            "state": "active",
+            "tracking_summary": {
+              "total": 0,
+              "recent": 0
+            },
+            "url": "https://data.gov.gr/dataset/715585b4-39dd-4f70-a029-051c07bf070d/resource/bb48a116-1aaa-4a00-8070-84b36a4b9e57/download/piraeus-smart-parking-bprugxkl.zip",
+            "url_type": "upload"
+          }
+        ],
+        "tags": [],
+        "groups": [],
+        "relationships_as_subject": [],
+        "relationships_as_object": [],
+        "organization_card": {
+          "title": "Δήμος Πειραιά",
+          "name": "dimospeiraia",
+          "type": "organization",
+          "is_linkable": true
+        },
+        "tracking_summary": {
+          "total": 9,
+          "recent": 9
+        }
+      },
+      {
+        "access_rights": "http://publications.europa.eu/resource/authority/access-right/PUBLIC",
+        "applicable_legislation": [
+          "https://eur-lex.europa.eu/eli/dir/2019/1024/oj/eng"
+        ],
+        "author": null,
+        "author_email": null,
+        "creator_user_id": "ddbcbe10-4cc7-4074-94b1-b3b98890cc35",
+        "dcat_type": [],
+        "frequency": "",
+        "hvd_category": [],
+        "id": "cd8f3289-cec2-4923-bdb4-20f839732831",
+        "isopen": false,
+        "landing_page": [],
+        "language_options": [],
+        "license_id": null,
+        "license_title": null,
+        "maintainer": null,
+        "maintainer_email": null,
+        "metadata_created": "2026-05-28T09:03:31.820505",
+        "metadata_modified": "2026-06-01T12:04:19.268544",
+        "name": "piraeus-financial-overview",
+        "notes": "Ετήσια Οικονομικά Στοιχεία",
+        "notes_translated": {
+          "el": "Ετήσια Οικονομικά Στοιχεία",
+          "en": "Annual Financial Overview"
+        },
+        "num_resources": 3,
+        "num_tags": 0,
+        "organization": {
+          "id": "13237b28-713a-4ef6-94ad-8d6e5d1c05b8",
+          "name": "dimospeiraia",
+          "title": "Δήμος Πειραιά",
+          "type": "organization",
+          "description": "ΔΗΜΟΣ ΠΕΙΡΑΙΑ - ΔΡΑΓΑΤΣΗ 12 ΠΕΙΡΑΙΑΣ - Τ.Κ. 18535 - ΤΗΛ. 2132022000",
+          "image_url": "2025-11-17-102759.905177peiraiaslogo.jpg",
+          "created": "2025-11-17T10:27:59.435763",
+          "is_organization": true,
+          "approval_status": "approved",
+          "state": "active"
+        },
+        "owner_org": "13237b28-713a-4ef6-94ad-8d6e5d1c05b8",
+        "private": false,
+        "state": "active",
+        "theme": [
+          "http://publications.europa.eu/resource/authority/data-theme/ECON"
+        ],
+        "title": "Ετήσια Οικονομικά Στοιχεία",
+        "title_translated": {
+          "el": "Ετήσια Οικονομικά Στοιχεία",
+          "en": "Annual Financial Overview"
+        },
+        "type": "dataset",
+        "url": null,
+        "contact": [
+          {
+            "email": "",
+            "name": "",
+            "uri": "",
+            "url": ""
+          }
+        ],
+        "creator": [
+          {
+            "description": "",
+            "email": "",
+            "identifier": "",
+            "name": "",
+            "type": "",
+            "uri": "",
+            "url": ""
+          }
+        ],
+        "publisher": [
+          {
+            "description": "",
+            "email": "",
+            "identifier": "",
+            "name": "",
+            "type": "",
+            "uri": "",
+            "url": ""
+          }
+        ],
+        "resources": [
+          {
+            "access_url": "https://city.piraeus.gov.gr/gis/api/finance-monitoring/yearly-summary/widget",
+            "applicable_legislation": [],
+            "availability": "",
+            "cache_last_updated": null,
+            "cache_url": null,
+            "created": "2026-05-28T09:05:29.824684",
+            "datastore_active": false,
+            "datastore_contains_all_records_of_source_file": false,
+            "description": "",
+            "description_translated": {
+              "el": "",
+              "en": ""
+            },
+            "download_url": "https://city.piraeus.gov.gr/gis/api/finance-monitoring/yearly-summary/widget",
+            "format": "JSON",
+            "hash": "",
+            "id": "0bb43425-c6ba-4f87-96d3-65660a3875f5",
+            "language_options": [],
+            "last_modified": null,
+            "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0",
+            "metadata_modified": "2026-06-01T12:04:19.272803",
+            "mimetype": "https://www.iana.org/assignments/media-types/application/json",
+            "mimetype_inner": null,
+            "name": "REST Endpoint",
+            "name_translated": {
+              "el": "REST Endpoint",
+              "en": "REST Endpoint"
+            },
+            "package_id": "cd8f3289-cec2-4923-bdb4-20f839732831",
+            "position": 0,
+            "qa": {
+              "resource_timestamp": null,
+              "archival_timestamp": null,
+              "openness_score": null,
+              "openness_score_reason": null,
+              "format": null,
+              "mqa_score": "67.9",
+              "mqa_findability_score": 30,
+              "mqa_accessibility_score": "60.0",
+              "mqa_interoperability_score": "110.0",
+              "mqa_reusability_score": "55.0",
+              "mqa_contextuality_score": "20.0",
+              "created": "2026-05-28T09:05:31.428734",
+              "updated": "2026-06-01T12:04:21.743208"
+            },
+            "resource_type": null,
+            "rights": "Τα δεδομένα διατίθενται υπό την άδεια : Creative Commons Attribution 4.0 International",
+            "size": 1,
+            "state": "active",
+            "tracking_summary": {
+              "total": 0,
+              "recent": 0
+            },
+            "url": "https://city.piraeus.gov.gr/gis//api/finance-monitoring/opendata/yearly-summaries?from=1777334400&to=1780012799&page=1&pageSize=1000",
+            "url_type": "",
+            "access_services": [
+              {
+                "uri": ""
+              }
+            ]
+          },
+          {
+            "access_url": "https://data.gov.gr/el/dataset/piraeus-financial-overview",
+            "applicable_legislation": [],
+            "availability": "",
+            "cache_last_updated": null,
+            "cache_url": null,
+            "created": "2026-05-28T09:07:40.559348",
+            "datastore_active": true,
+            "datastore_contains_all_records_of_source_file": false,
+            "description": "",
+            "description_translated": {
+              "el": "",
+              "en": ""
+            },
+            "download_url": "https://data.gov.gr/el/dataset/piraeus-financial-overview",
+            "format": "CSV",
+            "hash": "0c92e953be0a2ba9bd26b733f1b4d201",
+            "id": "e3da504e-eb0f-4851-86d9-9d8b009493e2",
+            "language_options": [],
+            "last_modified": "2026-06-01T12:04:19.254407",
+            "license": "http://publications.europa.eu/resource/authority/licence/CC_BY_4_0",
+            "metadata_modified": "2026-06-01T12:04:19.272886",
+            "mimetype": "https://www.iana.org/assignments/media-types/text/csv",
+            "mimetype_inner": null,
+            "name": "CSV",
+            "name_translated": {
+              "el": "CSV",
+              "en": "CSV"
+            },
+            "package_id": "cd8f3289-cec2-4923-bdb4-20f839732831",
+            "position": 1,
+            "resource_type": null,
+            "rights": "Τα δεδομένα διατίθενται υπό την άδεια : Creative Commons Attribution 4.0 International",
+            "size": 349,
+            "state": "active",
+            "tracking_summary": {
+              "total": 0,
+              "recent": 0
+            },
+            "url": "https://data.gov.gr/el/dataset/cd8f3289-cec2-4923-bdb4-20f839732831/resource/e3da504e-eb0f-4851-86d9-9d8b009493e2/download/ots_finance_2026_06_01.csv",
+            "url_type": "upload",
+            "access_services": [
+              {
+                "uri": ""
+              }
+            ]
+          },
+          {
+            "access_url": "dummy-value",
+            "cache_last_updated": null,
+            "cache_url": null,
+            "created": "2026-05-30T23:04:53.454883",
+            "datastore_active": false,
+            "datastore_contains_all_records_of_source_file": false,
+            "description": "",
+            "description_translated": {},
+            "download_url": "dummy-value",
+            "downloadall_datapackage_hash": "ab8cd7af58aab502f8e3544b0f459abd",
+            "downloadall_metadata_modified": "2026-05-28T09:08:22.689743",
+            "format": "ZIP",
+            "hash": "",
+            "id": "0594d118-c1ae-4d56-90ce-eb43de541be6",
+            "language_options": [],
+            "last_modified": "2026-05-30T23:04:51.532041",
+            "metadata_modified": "2026-06-01T12:00:41.187653",
+            "mimetype_inner": null,
+            "name": "Όλα τα δεδομένα πόρων",
+            "name_translated": {
+              "en": "All resource data",
+              "el": "Όλα τα δεδομένα πόρων"
+            },
+            "package_id": "cd8f3289-cec2-4923-bdb4-20f839732831",
+            "position": 2,
+            "resource_type": null,
+            "size": 1416,
+            "state": "active",
+            "tracking_summary": {
+              "total": 0,
+              "recent": 0
+            },
+            "url": "https://data.gov.gr/el/dataset/cd8f3289-cec2-4923-bdb4-20f839732831/resource/0594d118-c1ae-4d56-90ce-eb43de541be6/download/piraeus-financial-overview-cpj3ie1c.zip",
+            "url_type": "upload"
+          }
+        ],
+        "tags": [],
+        "groups": [],
+        "relationships_as_subject": [],
+        "relationships_as_object": [],
+        "organization_card": {
+          "title": "Δήμος Πειραιά",
+          "name": "dimospeiraia",
+          "type": "organization",
+          "is_linkable": true
+        },
+        "tracking_summary": {
+          "total": 11,
+          "recent": 11
+        }
+      }
+    ],
+    "sort": "score desc, metadata_modified desc",
+    "search_facets": {}
+  }
+}
