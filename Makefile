@@ -9,11 +9,11 @@ probe:  ## run the Phase 1 API discovery probe -> docs/api_probe_raw.md
 harvest:  ## Phase 2: harvest catalog metadata -> data/catalog.sqlite
 	uv run python -m pythia.ingest.harvest
 
-index:  ## Phase 3
-	@echo "index: not implemented until Phase 3"
+index:  ## Phase 3: build dense (Chroma) + lexical (FTS5) indexes
+	uv run python -m pythia.retrieval.index
 
-eval:  ## Phase 3+
-	@echo "eval: not implemented until Phase 3"
+eval:  ## Phase 3: run the golden-question retrieval eval
+	uv run python -m pythia.eval.run_eval
 
 dev:  ## Phase 7
 	@echo "dev: not implemented until Phase 7"

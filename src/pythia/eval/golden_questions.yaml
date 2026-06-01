@@ -1,0 +1,134 @@
+# Golden questions for retrieval eval (Phase 3). Each maps to exactly one dataset.
+# Drafted from the real harvested catalog; expected ids verified to exist.
+# lang: el | en | greeklish
+questions:
+  - id: q01
+    question: "Πόσα τροχαία ατυχήματα έχουν καταγραφεί στην Ελλάδα και με ποια στοιχεία;"
+    lang: el
+    expected_name: "mcp_traffic_accidents"
+    expected_id: "47ed4dbf-5e14-4ad9-8edd-3cef6373694d"
+  - id: q02
+    question: "Πού μπορώ να βρω κατάλογο με τις δασικές πυρκαγιές που εκδηλώθηκαν στη χώρα;"
+    lang: el
+    expected_name: "mcp_forest_fires"
+    expected_id: "363b7676-1604-438e-a5ee-545c29d15caf"
+  - id: q03
+    question: "Πόσοι άνθρωποι εμβολιάστηκαν για τον κορονοϊό στην Ελλάδα;"
+    lang: el
+    expected_name: "mdg_emvolio"
+    expected_id: "9871e167-0f72-4fa5-a7da-9afd9693e646"
+  - id: q04
+    question: "Υπάρχουν δεδομένα για τα δρομολόγια και την κίνηση των ακτοπλοϊκών εταιρειών;"
+    lang: el
+    expected_name: "sailing_traffic"
+    expected_id: "8ef598b1-7cb2-4e9b-bfe0-83ea307e2fb5"
+  - id: q05
+    question: "Ποια είναι η χωρητικότητα των φυλακών στην Ελλάδα;"
+    lang: el
+    expected_name: "prisons-capacity"
+    expected_id: "786632da-05ec-48f5-9cfc-1838047caa9f"
+  - id: q06
+    question: "Πόσες κλήσεις δέχτηκε ο ευρωπαϊκός αριθμός έκτακτης ανάγκης 112;"
+    lang: el
+    expected_name: "statistika-stoixeia-klhsewn-ston-eniaio-eyrwpaiko-ari8mo-ektakths-anagkhs-112"
+    expected_id: "08153916-8376-4659-b665-319485a22c00"
+  - id: q07
+    question: "Πού δημοσιεύονται οι νόμοι του ελληνικού κράτους σε ανοιχτή μορφή;"
+    lang: el
+    expected_name: "gov-et-laws"
+    expected_id: "c4e8be4c-a2ac-4877-9e87-868d8aab37d1"
+  - id: q08
+    question: "Ποιες επιχειρήσεις έχουν λάβει το Ειδικό Σήμα Ποιότητας Ελληνικής Κουζίνας;"
+    lang: el
+    expected_name: "epicheiriseis-me-to-eidiko-sima-poiotitas-ellinikis-koyzinas-espek"
+    expected_id: "2734d577-189a-4022-83c9-7c1d18062e03"
+  - id: q09
+    question: "Ποια είναι τα αναγνωρισμένα ιαματικά φυσικά λουτρά της χώρας;"
+    lang: el
+    expected_name: "anagnorismenoi-iamatikoi-fysikoi-poroi"
+    expected_id: "8e04f80a-6dd7-41c7-9e92-3a79fd2c96c6"
+  - id: q10
+    question: "Πόσα μέλη ΔΕΠ υπηρετούν σε κάθε πανεπιστήμιο ανά βαθμίδα φέτος;"
+    lang: el
+    expected_name: "meli-dep-ana-vathmida-kai-ana-idryma-2025"
+    expected_id: "92434aff-8ea8-4afd-8596-82347e68d3d3"
+  - id: q11
+    question: "Τι αποτελέσματα είχαν οι υγειονομικοί έλεγχοι σε επιχειρήσεις τροφίμων και ποτών;"
+    lang: el
+    expected_name: "apotelesmata-ygeionomikwn-elegxwn-epixeirhsewn-trofimwn-kai-potwn"
+    expected_id: "02f0bab7-a317-4518-bdd8-d513d7ccb8d8"
+  - id: q12
+    question: "Πόσες απελάσεις μη νόμιμων μεταναστών έγιναν ανά υπηκοότητα;"
+    lang: el
+    expected_name: "apelaseis-mh-nomimwn-metanastwn-ana-yphkoothta"
+    expected_id: "5dbf040e-41c4-47ee-be56-f544b7f60c68"
+  - id: q13
+    question: "What is the index tracking apartment prices published by the central bank?"
+    lang: en
+    expected_name: "bank-of-greece-index-of-apartment-prices"
+    expected_id: "caacf7fe-2134-46e3-86cd-0c4ff62852c5"
+  - id: q14
+    question: "Where can I find the producer price index for Greek industry?"
+    lang: en
+    expected_name: "deiktis-timon-paragogoy-sti-viomichania"
+    expected_id: "1b5b443a-4f15-4130-b3e4-76f700c6c67f"
+  - id: q15
+    question: "Is there data on R&D expenditure broken down by source of funding?"
+    lang: en
+    expected_name: "ekt-expenses-source"
+    expected_id: "09e777ad-316a-417f-989c-b7a7591ccbb5"
+  - id: q16
+    question: "How many asylum applications were filed in 2024 grouped by the applicants' nationality?"
+    lang: en
+    expected_name: "aitimata-asyloy-2024-ana-ypikootita"
+    expected_id: "49901723-7adb-4da9-aeff-631b2e8067ba"
+  - id: q17
+    question: "I'm looking for the main bus and trolley route network of Athens."
+    lang: en
+    expected_name: "vasiko-diktyo-diadromon-leoforeion-trolei"
+    expected_id: "2b97a258-a421-4479-a19a-fb0d4ec808a4"
+  - id: q18
+    question: "Show me traffic volumes recorded at the toll stations on the Hellastron motorway network."
+    lang: en
+    expected_name: "data-nap-gov-gr-traffic-data-from-toll-stations-in-hellastron-network"
+    expected_id: "db370288-2e3b-4574-9031-e3c8d44058ac"
+  - id: q19
+    question: "Are there meteorological observations from the weather station in Heraklion?"
+    lang: en
+    expected_name: "emy-station-038"
+    expected_id: "559cad31-321b-4895-8cf6-f25fe6563f8e"
+  - id: q20
+    question: "posa kroysmata oikonomikon egklimaton entopise i oikonomiki astynomia?"
+    lang: greeklish
+    expected_name: "mcp_financial_crimes"
+    expected_id: "f26ef1f3-0677-44b7-bf4f-392b15c2ac64"
+  - id: q21
+    question: "poso einai i kinisi tou internet stin Ellada apo to GR-IX?"
+    lang: greeklish
+    expected_name: "internet_traffic"
+    expected_id: "78263cf3-e67b-4878-8a29-0c7e458b22a4"
+  - id: q22
+    question: "ftiaxnete kapou i aksiologisi tis dimosias dioikisis?"
+    lang: greeklish
+    expected_name: "public-administration-evaluation"
+    expected_id: "32f78a6a-0f7c-4414-813d-bff457719aff"
+  - id: q23
+    question: "pou tha vro tin elegxomeni stathmeusi (smart parking) tou Dimou Peiraia?"
+    lang: greeklish
+    expected_name: "piraeus-smart-parking"
+    expected_id: "715585b4-39dd-4f70-a029-051c07bf070d"
+  - id: q24
+    question: "posoi neoi misthotoi proslifthikan ston idiotiko tomea to 2025 (roes apascholisis)?"
+    lang: greeklish
+    expected_name: "roes-misthotis-apascholisis-ston-idiotiko-tomea-2025"
+    expected_id: "8c6ff5f5-b7f9-498e-b289-a200fbc192c5"
+  - id: q25
+    question: "se poia simeia tou Dimou Peiraia yparxoun kentra anakyklosis?"
+    lang: greeklish
+    expected_name: "piraeus-recycling-centers"
+    expected_id: "f9dcd34f-2f26-44b0-80de-59cdd7c30c10"
+  - id: q26
+    question: "ana perifereia, posa epaggelmatika lykeia EPAL yparxoun;"
+    lang: greeklish
+    expected_name: "epal-ana-perifereia-2025"
+    expected_id: "995972a5-ba2f-4e23-a5e6-c08d3f31ac4e"
