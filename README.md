@@ -111,7 +111,7 @@ in the May 2026 relaunch. Full details — endpoints, pagination, schema, gotcha
 - [x] **Phase 0** — Setup: repo, tooling, config, logging.
 - [x] **Phase 1** — API discovery: catalog + data endpoints documented.
 - [ ] **Phase 2** — Ingestion: harvest + normalize metadata into SQLite.
-- [ ] **Phase 3** — Retrieval: embeddings, hybrid search, golden-set eval.
+- [x] **Phase 3** — Retrieval: embeddings, hybrid search (dense + BM25, RRF), golden-set eval.
 - [ ] **Phase 4** — Planning: NL → structured query.
 - [ ] **Phase 5** — Access: resilient data client + cache.
 - [ ] **Phase 6** — Synthesis: grounded answer + chart + freshness footer.

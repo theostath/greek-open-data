@@ -183,7 +183,12 @@ Status legend: [ ] not started · [~] in progress · [x] done
       (124 non-dataset/inactive skipped); `last_updated`=`metadata_modified` on every row. Note:
       `name` slug is **not unique** upstream (2 collisions) and deep pagination needs an explicit
       `sort`. Run with `make harvest`.
-- [ ] **Phase 3 — Retrieval:** embeddings, Chroma index, `find_dataset()`, golden set + eval.
+- [x] **Phase 3 — Retrieval:** hybrid `find_dataset()` = dense (Chroma, e5) + lexical (SQLite
+      FTS5/BM25) fused with RRF (ADR-0001); `make index` builds both, `make eval` scores a
+      26-question golden set. **Baseline (e5-small, n=26): MRR 0.48, R@5 0.58, R@10 0.65**
+      (el 0.56 / en 0.52 / greeklish 0.30 MRR). Greeklish is the weak spot — next levers:
+      e5-large swap, reranker (ADR-0002), Greeklish→Greek transliteration. TLS to Hugging Face
+      goes through the OS trust store (`pythia/net.py`).
 - [ ] **Phase 4 — Planning:** NL → structured query; Greek/Greeklish normalization.
 - [ ] **Phase 5 — Access:** resilient data client + SQLite cache + schema sniffing.
 - [ ] **Phase 6 — Synthesis:** grounded answer + Vega-Lite spec + freshness footer.
@@ -208,4 +213,6 @@ secrets leaked; and any new external-API assumption is reflected in `docs/api_fi
 - Is the relaunched catalog CKAN, and does it expose full per-resource schema?
 - Does the data API still use the legacy token + `query/{dataset}` pattern post-relaunch?
 - Which datasets are tabular-and-fresh enough to be the demo set for Phase 6?
-- Embedding strategy: embed title+description only, or include column/field names?
+- ~~Embedding strategy: title+description only, or include column/field names?~~ **Resolved
+  (Phase 3):** embed `title + notes + tags` plus their English translations (the `embed_text`
+  column); per-resource field names deferred — revisit if eval shows a gap.
