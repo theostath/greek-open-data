@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     data_gov_gr_token: str | None = None
     anthropic_api_key: str | None = None
     data_gov_gr_base_url: str = "https://data.gov.gr"
+    catalog_db_path: str = "data/catalog.sqlite"
 
 
 def get_settings() -> Settings:
