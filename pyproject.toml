@@ -8,6 +8,10 @@ dependencies = [
     "httpx>=0.27",
     "charset-normalizer>=3.3",
     "tenacity>=8.0",
+    "sentence-transformers>=3.0",
+    "chromadb>=0.5",
+    "truststore>=0.9",
+    "pyyaml>=6.0",
 ]
 
 [tool.uv]
@@ -20,6 +24,7 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.11",
     "pytest>=8.0",
+    "types-pyyaml>=6.0",
 ]
 
 [build-system]
@@ -45,7 +50,7 @@ files = ["src", "config.py"]
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["charset_normalizer.*"]
+module = ["charset_normalizer.*", "truststore.*", "chromadb.*", "sentence_transformers.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
