@@ -1,0 +1,52 @@
+[project]
+name = "pythia"
+version = "0.0.0"
+description = "Natural-language query assistant over the Greek open-data portal (data.gov.gr)"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic-settings>=2.0",
+    "httpx>=0.27",
+    "charset-normalizer>=3.3",
+]
+
+[tool.uv]
+# This environment terminates TLS with a custom root CA (corporate proxy);
+# use the OS trust store so uv can reach PyPI.
+native-tls = true
+
+[dependency-groups]
+dev = [
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "pytest>=8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pythia"]
+
+[tool.ruff]
+src = ["src"]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+mypy_path = "."
+files = ["src", "config.py"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["charset_normalizer.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# Tooling caches
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+
+# Secrets & local data (committed schema lives elsewhere)
+.env
+data/
+
+# Local scratch
+prompts.txt
+.claude/settings.local.json
