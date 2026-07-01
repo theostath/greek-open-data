@@ -16,6 +16,7 @@ from config import get_settings
 from pythia.ingest.db import connect
 from pythia.logging_setup import configure_logging, get_logger, log_event
 from pythia.retrieval.embed import load_model
+from pythia.retrieval.rerank import Scorer, load_reranker
 from pythia.retrieval.search import find_dataset
 
 LOGGER_NAME = "pythia.eval.run_eval"
@@ -80,6 +81,10 @@ def main() -> int:
 
     conn = connect(settings.catalog_db_path)
     model = load_model(settings.embedding_model)
+    reranker: Scorer | None = (
+        load_reranker(settings.rerank_model) if settings.rerank_enabled else None
+    )
+    log_event(logger, logging.INFO, "eval.config", rerank_enabled=settings.rerank_enabled)
 
     ranks: list[float] = []
     hits = {k: 0 for k in K_VALUES}
@@ -93,6 +98,8 @@ def main() -> int:
             model=model,
             chroma_path=settings.chroma_path,
             top_k=max(K_VALUES),
+            reranker=reranker,
+            rerank_pool=settings.rerank_pool,
         )
         ranked_ids = [c.id for c in candidates]
         rr = reciprocal_rank(question.expected_id, ranked_ids)

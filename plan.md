@@ -70,8 +70,9 @@ OpenAI-compatible API at `http://localhost:11434/v1` (native `/api/chat` also av
 ### Retrieval quality backlog (Phase 3 follow-ups)
 - **Greeklish is the weak spot (0.30 MRR).** Highest-value fix: a **Greeklish→Greek
   transliteration** step before retrieval. (Write an ADR.)
-- **Reranker (ADR-0002):** eval-gated cross-encoder over top-k; adopt only if it beats
-  hybrid-only on the golden set.
+- **Reranker (ADR-0002):** cross-encoder `pythia.retrieval.rerank` landed behind
+  `rerank_enabled` (default off); `make eval` runs off-vs-on. Flip ADR to Accepted only if
+  it beats hybrid-only on the golden set without regressing `el`. **Eval run still pending.**
 - **Expand the golden set** beyond 26 once more datasets are exercised.
 
 ### Phase 4 — Planning (`src/pythia/planning/planner.py`)

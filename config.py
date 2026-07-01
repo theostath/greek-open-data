@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     chroma_path: str = "data/chroma"
     retrieval_top_k: int = 10
 
+    # Reranking (Phase 3 follow-up, ADR-0002). Opt-in and eval-gated: when enabled the
+    # cross-encoder reorders the top ``rerank_pool`` fused candidates down to top_k.
+    rerank_enabled: bool = False
+    rerank_model: str = "BAAI/bge-reranker-v2-m3"
+    rerank_pool: int = 20
+
 
 def get_settings() -> Settings:
     """Return application settings loaded from the environment."""

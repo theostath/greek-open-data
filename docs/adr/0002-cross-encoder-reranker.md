@@ -7,3 +7,11 @@
 - **Decision:** Rerank ~20→5 hybrid candidates with a multilingual cross-encoder
   (e.g. BGE-reranker-v2-m3). Gate adoption on the golden set; if it does not beat hybrid-only
   on Greek questions, drop it. Adds one local model + a few hundred ms/query.
+- **Implementation:** `pythia.retrieval.rerank` (`load_reranker`, `rerank`) scores
+  `(question, embed_text)` pairs with `sentence_transformers.CrossEncoder`
+  (`BAAI/bge-reranker-v2-m3`, no new dependency). `find_dataset` accepts an optional
+  `reranker`: when supplied it reorders the top `rerank_pool` fused candidates down to
+  `top_k`, otherwise fusion alone ranks. Config: `rerank_enabled` (default off),
+  `rerank_model`, `rerank_pool`. Unit-tested offline with a fake scorer.
+- **Status remains Proposed** until the golden-set eval (`make eval`, off vs on) confirms a
+  gain with no `el` regression; flip to Accepted then, or drop the model wiring if not.
