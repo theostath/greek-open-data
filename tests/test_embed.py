@@ -12,11 +12,14 @@ from pythia.ingest import db
 from pythia.ingest.models import DatasetRow
 from pythia.retrieval import embed
 
+# Tests pin the small model: fast, and the 384-dim assertions below depend on it.
+TEST_MODEL = "intfloat/multilingual-e5-small"
+
 
 @pytest.fixture(scope="module")
 def model() -> SentenceTransformer:
-    """Load the embedding model once for the whole module (cached, a few seconds)."""
-    return embed.load_model()
+    """Load the (small) test embedding model once for the whole module."""
+    return embed.load_model(TEST_MODEL)
 
 
 def _norm(vec: list[float]) -> float:
@@ -97,3 +100,46 @@ def test_build_index_and_dense_search(model: SentenceTransformer, tmp_path: Path
         "καμένες εκτάσεις από φωτιές", top_k=4, model=model, chroma_path=chroma_path
     )
     assert fire_hits[0] == "mcp_forest_fires"
+
+
+def test_incremental_skips_unchanged(model: SentenceTransformer, tmp_path: Path) -> None:
+    """A rebuild with no catalog changes re-embeds nothing."""
+    conn = db.connect(":memory:")
+    db.init_db(conn)
+    for row in [_row("a", "δασικές πυρκαγιές"), _row("b", "εμβολιασμοί"),
+                _row("c", "τροχαία ατυχήματα")]:
+        db.upsert_dataset(conn, row)
+    conn.commit()
+    chroma_path = str(tmp_path / "chroma")
+    assert embed.build_chroma_index(conn, model, chroma_path=chroma_path) == 3
+    assert embed.build_chroma_index(conn, model, chroma_path=chroma_path) == 0
+
+
+def test_incremental_embeds_only_changed(model: SentenceTransformer, tmp_path: Path) -> None:
+    """Only datasets whose embed_text changed are re-embedded on rebuild."""
+    conn = db.connect(":memory:")
+    db.init_db(conn)
+    for row in [_row("a", "δασικές πυρκαγιές"), _row("b", "εμβολιασμοί")]:
+        db.upsert_dataset(conn, row)
+    conn.commit()
+    chroma_path = str(tmp_path / "chroma")
+    embed.build_chroma_index(conn, model, chroma_path=chroma_path)
+    db.upsert_dataset(conn, _row("b", "τουρισμός και αφίξεις επισκεπτών"))
+    conn.commit()
+    assert embed.build_chroma_index(conn, model, chroma_path=chroma_path) == 1
+
+
+def test_incremental_deletes_removed(model: SentenceTransformer, tmp_path: Path) -> None:
+    """Datasets removed from the catalog are dropped from the index."""
+    conn = db.connect(":memory:")
+    db.init_db(conn)
+    for row in [_row("a", "δασικές πυρκαγιές"), _row("b", "εμβολιασμοί")]:
+        db.upsert_dataset(conn, row)
+    conn.commit()
+    chroma_path = str(tmp_path / "chroma")
+    embed.build_chroma_index(conn, model, chroma_path=chroma_path)
+    conn.execute("DELETE FROM datasets WHERE id = ?", ("b",))
+    conn.commit()
+    embed.build_chroma_index(conn, model, chroma_path=chroma_path)
+    hits = embed.dense_search("εμβόλια", top_k=5, model=model, chroma_path=chroma_path)
+    assert "b" not in hits

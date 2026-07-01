@@ -9,6 +9,7 @@ so it never falls back to (and downloads) its default ONNX embedder.
 
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 from typing import cast
 
@@ -59,6 +60,11 @@ def _collection(chroma_path: str, collection: str) -> Collection:
     )
 
 
+def _signature(embed_text: str) -> str:
+    """Content signature used to detect which datasets need re-embedding."""
+    return hashlib.sha1(embed_text.encode("utf-8")).hexdigest()
+
+
 def build_chroma_index(
     conn: sqlite3.Connection,
     model: SentenceTransformer,
@@ -67,29 +73,45 @@ def build_chroma_index(
     collection: str = "datasets",
     batch_size: int = 256,
 ) -> int:
-    """Embed every dataset's ``embed_text`` in batches and upsert into Chroma; return count."""
+    """Incrementally index the catalog into Chroma; return the number embedded this run.
+
+    Only datasets whose ``embed_text`` changed since the last run are re-embedded
+    (tracked via a per-vector content signature); datasets removed from the catalog
+    are dropped from the index. A fresh index embeds everything.
+    """
     coll = _collection(chroma_path, collection)
-    cursor = conn.execute("SELECT id, embed_text FROM datasets")
-    total = 0
-    batch: list[tuple[str, str]] = []
+    current = {
+        str(row[0]): str(row[1])
+        for row in conn.execute("SELECT id, embed_text FROM datasets")
+    }
 
-    def flush(items: list[tuple[str, str]]) -> None:
-        """Embed and upsert one batch of (id, text) rows."""
-        if not items:
-            return
-        ids = [item[0] for item in items]
-        embeddings = embed_passages(model, [item[1] for item in items])
-        coll.upsert(ids=ids, embeddings=cast(Embeddings, embeddings))
+    existing = coll.get()
+    metadatas = existing.get("metadatas") or []
+    existing_sigs = {
+        ex_id: (meta or {}).get("sig")
+        for ex_id, meta in zip(existing["ids"], metadatas, strict=False)
+    }
 
-    for row in cursor:
-        batch.append((str(row[0]), str(row[1])))
-        if len(batch) >= batch_size:
-            flush(batch)
-            total += len(batch)
-            batch = []
-    flush(batch)
-    total += len(batch)
-    return total
+    changed = [
+        (dataset_id, text)
+        for dataset_id, text in current.items()
+        if existing_sigs.get(dataset_id) != _signature(text)
+    ]
+    removed = [ex_id for ex_id in existing_sigs if ex_id not in current]
+
+    for start in range(0, len(changed), batch_size):
+        chunk = changed[start : start + batch_size]
+        embeddings = embed_passages(model, [text for _, text in chunk])
+        coll.upsert(
+            ids=[dataset_id for dataset_id, _ in chunk],
+            embeddings=cast(Embeddings, embeddings),
+            metadatas=[{"sig": _signature(text)} for _, text in chunk],
+        )
+
+    if removed:
+        coll.delete(ids=removed)
+
+    return len(changed)
 
 
 def dense_search(
