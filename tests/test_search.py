@@ -26,8 +26,8 @@ _TOPICS = {
 
 @pytest.fixture(scope="module")
 def model() -> SentenceTransformer:
-    """Load the embedding model once for the module."""
-    return load_model()
+    """Load the (small) test embedding model once for the module."""
+    return load_model("intfloat/multilingual-e5-small")
 
 
 def _row(id_: str, text: str) -> DatasetRow:

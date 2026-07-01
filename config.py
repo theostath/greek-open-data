@@ -24,8 +24,8 @@ class Settings(BaseSettings):
     data_gov_gr_base_url: str = "https://data.gov.gr"
     catalog_db_path: str = "data/catalog.sqlite"
 
-    # Retrieval (Phase 3). Swap embedding_model to multilingual-e5-large for final eval.
-    embedding_model: str = "intfloat/multilingual-e5-small"
+    # Retrieval (Phase 3). e5-large is the production model; tests pin e5-small for speed.
+    embedding_model: str = "intfloat/multilingual-e5-large"
     chroma_path: str = "data/chroma"
     retrieval_top_k: int = 10
 
