@@ -95,8 +95,14 @@ uv run python -m pythia.ingest.client_probe   # -> docs/api_probe_raw.md
 | Install deps | `make setup` | `uv sync` |
 | API probe | `make probe` | `uv run python -m pythia.ingest.client_probe` |
 | Lint + types + tests | `make check` | `uv run ruff check . && uv run mypy && uv run pytest -q` |
+| Harvest catalog | `make harvest` | `uv run python -m pythia.ingest.harvest` |
+| Build indexes | `make index` | `uv run python -m pythia.retrieval.index` |
+| Retrieval eval | `make eval` | `uv run python -m pythia.eval.run_eval` |
 | Dev server | `make dev` | *(Phase 7)* |
-| Harvest / index / eval | `make harvest` / `index` / `eval` | *(Phase 2–3)* |
+
+> `make index` is **incremental** — it re-embeds only datasets whose text changed (and drops
+> removed ones), so refreshing the catalog doesn't re-embed everything.
+> Current retrieval baseline (e5-large, 26 golden questions): **R@10 0.77, MRR 0.53**.
 
 ## Data source
 
@@ -106,11 +112,23 @@ CKAN DataStore or a direct file download. The legacy `/api/v1/query/{dataset}` A
 in the May 2026 relaunch. Full details — endpoints, pagination, schema, gotchas — live in
 [`docs/api_findings.md`](docs/api_findings.md).
 
+## Where the data & embeddings live
+
+All of these are **local build artifacts** (gitignored) — regenerate them with
+`make harvest` then `make index`; nothing here is committed.
+
+| Artifact | Location | In git? |
+| --- | --- | --- |
+| Catalog metadata (`datasets`, `resources`) | `data/catalog.sqlite` | gitignored |
+| Lexical index (FTS5 / BM25) | `datasets_fts` table inside `data/catalog.sqlite` | gitignored |
+| Dense embedding **vectors** (Chroma) | `data/chroma/` (`chroma.sqlite3` + collection dir) | gitignored |
+| Embedding **model weights** (e5-large, ~2.2 GB) | `~/.cache/huggingface/hub/` — outside the repo | n/a |
+
 ## Roadmap
 
 - [x] **Phase 0** — Setup: repo, tooling, config, logging.
 - [x] **Phase 1** — API discovery: catalog + data endpoints documented.
-- [ ] **Phase 2** — Ingestion: harvest + normalize metadata into SQLite.
+- [x] **Phase 2** — Ingestion: harvest + normalize metadata into SQLite.
 - [x] **Phase 3** — Retrieval: embeddings, hybrid search (dense + BM25, RRF), golden-set eval.
 - [ ] **Phase 4** — Planning: NL → structured query.
 - [ ] **Phase 5** — Access: resilient data client + cache.

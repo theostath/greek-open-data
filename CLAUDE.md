@@ -75,12 +75,18 @@ If you believe a swap is warranted, write a 3-line ADR in `docs/adr/` and procee
 │   ├── catalog.sqlite           # harvested metadata (gitignored)
 │   └── chroma/                  # vector index (gitignored)
 ├── src/pythia/
+│   ├── net.py                   # route TLS via the OS trust store (proxy CA)
 │   ├── ingest/                  # Phase 1–2: API discovery + catalog harvest
 │   │   ├── client_probe.py      # one-off endpoint discovery, writes findings to docs/
 │   │   ├── harvest.py           # pulls all dataset metadata -> SQLite
-│   │   └── normalize.py         # schema normalization, Greek text cleanup
-│   ├── retrieval/               # Phase 3: embed + search metadata
-│   │   ├── embed.py
+│   │   ├── normalize.py         # schema normalization, Greek text cleanup
+│   │   ├── models.py            # typed row models (ingest contract)
+│   │   ├── db.py                # SQLite persistence (idempotent upserts)
+│   │   └── schema.sql           # committed catalog schema
+│   ├── retrieval/               # Phase 3: embed + hybrid search
+│   │   ├── embed.py             # e5 embeddings + incremental Chroma index
+│   │   ├── lexical.py           # FTS5 BM25 + RRF fusion
+│   │   ├── index.py             # `make index`: build dense + lexical indexes
 │   │   └── search.py            # find_dataset(question) -> ranked candidates
 │   ├── planning/                # Phase 4: NL -> structured query
 │   │   └── planner.py
