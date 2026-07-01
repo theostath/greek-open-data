@@ -32,8 +32,14 @@ def _build_embed_text(
     title_en: str | None,
     notes_en: str | None,
 ) -> str:
-    """Join the non-empty bilingual fields into newline-separated embedding text."""
-    parts = [title, notes, " ".join(tags), title_en, notes_en]
+    """Join the non-empty bilingual fields into newline-separated embedding text.
+
+    Fields are ordered high-signal-first — both titles then tags, with the long
+    descriptions last — so that when the E5 encoder truncates at its 512-token window
+    (~1.9% of datasets overflow it), the bilingual title/tag signal survives rather
+    than the English translations (which, appended last, would otherwise drop first).
+    """
+    parts = [title, title_en, " ".join(tags), notes, notes_en]
     return "\n".join(p.strip() for p in parts if p and p.strip())
 
 

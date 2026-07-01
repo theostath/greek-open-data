@@ -38,7 +38,12 @@ def embed_query(model: SentenceTransformer, text: str) -> list[float]:
 
 
 def embed_passages(model: SentenceTransformer, texts: list[str]) -> list[list[float]]:
-    """Embed documents with the E5 ``passage:`` prefix; return normalized vectors."""
+    """Embed documents with the E5 ``passage:`` prefix; return normalized vectors.
+
+    E5 silently truncates input beyond ``model.max_seq_length`` (512 tokens). The
+    ``embed_text`` fed here is ordered high-signal-first (see ``normalize._build_embed_text``)
+    so truncation drops long descriptions rather than the bilingual title/tag signal.
+    """
     prefixed = [f"passage: {t}" for t in texts]
     vectors = model.encode(prefixed, normalize_embeddings=True)
     return [[float(x) for x in row] for row in vectors]
