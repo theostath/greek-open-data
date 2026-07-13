@@ -66,10 +66,15 @@ def lexical_search(conn: sqlite3.Connection, query: str, top_k: int) -> list[str
     return [row[0] for row in rows]
 
 
-def rrf_fuse(
+def rrf_fuse_scored(
     rankings: list[list[str]], *, k: int = 60, top_k: int | None = None
-) -> list[str]:
-    """Fuse rank lists via Reciprocal Rank Fusion; stable tie-break by first seen."""
+) -> list[tuple[str, float]]:
+    """Fuse rank lists via Reciprocal Rank Fusion; return ``(id, score)`` best-first.
+
+    The RRF score is the sum of ``1/(k + rank)`` across the rankings an id appears in,
+    so a higher score means stronger dense+lexical agreement. Ties break stably by first
+    appearance. The scale is stable enough to threshold on (see ``search.confidence``).
+    """
     scores: dict[str, float] = {}
     order: dict[str, int] = {}
     seen = 0
@@ -82,4 +87,11 @@ def rrf_fuse(
     fused = sorted(scores, key=lambda item: (-scores[item], order[item]))
     if top_k is not None:
         fused = fused[:top_k]
-    return fused
+    return [(item, scores[item]) for item in fused]
+
+
+def rrf_fuse(
+    rankings: list[list[str]], *, k: int = 60, top_k: int | None = None
+) -> list[str]:
+    """Fuse rank lists via Reciprocal Rank Fusion; stable tie-break by first seen."""
+    return [item for item, _ in rrf_fuse_scored(rankings, k=k, top_k=top_k)]
