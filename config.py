@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     )
 
     data_gov_gr_token: str | None = None
+    # RAGAS dev-eval only (ADR-0003/0004); never read on the planning/synthesis path.
     anthropic_api_key: str | None = None
     data_gov_gr_base_url: str = "https://data.gov.gr"
     catalog_db_path: str = "data/catalog.sqlite"
@@ -34,6 +35,23 @@ class Settings(BaseSettings):
     rerank_enabled: bool = False
     rerank_model: str = "BAAI/bge-reranker-v2-m3"
     rerank_pool: int = 20
+
+    # Planning (Phase 4, ADR-0004/0005). LLM = local Qwen via Ollama's OpenAI-compatible
+    # API; no API key, no network egress. Model id lives here, never inline.
+    llm_base_url: str = "http://localhost:11434/v1"
+    llm_model: str = "qwen3.5:9b"
+    llm_timeout_s: float = 30.0  # ceiling, not a target (9B on CPU); do not retry timeouts
+    llm_temperature: float = 0.0  # deterministic extraction
+    llm_max_tokens: int = 512
+    # Grounded-or-silent: LLM relevance gate is primary; this score floor is the
+    # degraded-mode fallback (min confidence, 0..1) when the LLM is unavailable.
+    planning_score_threshold: float = 0.15
+    planning_limit_max: int = 32000  # DataStore hard cap; clamp any extracted limit to it
+    # Opt-in, eval-gated LLM disambiguation over the top-N shortlist (ADR-0002 precedent).
+    planning_llm_disambiguate: bool = False
+    planning_disambiguate_pool: int = 5
+    # Minimum question length (chars, stripped) below which we decline without an LLM call.
+    planning_min_question_chars: int = 3
 
 
 def get_settings() -> Settings:
