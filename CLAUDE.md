@@ -52,8 +52,10 @@ government system, cross-dataset statistical modeling/forecasting, mobile apps.
 - **Vector store:** Chroma (persistent, local). Swap to pgvector only if scale demands it.
 - **Embeddings:** `intfloat/multilingual-e5-large` via `sentence-transformers` (strong Greek,
   runs locally, zero API cost). Hosted fallback: Voyage AI multilingual.
-- **LLM (planning + synthesis):** Claude Sonnet (confirm the current API model string at
-  build time — do NOT hardcode a guessed version). Keep the model id in config, not inline.
+- **LLM (planning + synthesis):** local **Qwen via Ollama** (OpenAI-compatible API at
+  `llm_base_url`; default `qwen3.5:9b`) — local-first, no API key, no egress (ADR-0004).
+  Model id in config, not inline. Anthropic is retained **only** for RAGAS dev-eval
+  (ADR-0003). Superseded the original Claude Sonnet choice per `plan.md` direction change.
 - **HTTP:** `httpx` (async), with `tenacity` for retries.
 - **Charts:** emit Vega-Lite JSON specs; render client-side.
 - **Testing:** `pytest`. **Lint/format:** `ruff`. **Types:** `mypy` on `src/`.
@@ -195,7 +197,16 @@ Status legend: [ ] not started · [~] in progress · [x] done
       (el 0.56 / en 0.52 / greeklish 0.30 MRR). Greeklish is the weak spot — next levers:
       e5-large swap, reranker (ADR-0002), Greeklish→Greek transliteration. TLS to Hugging Face
       goes through the OS trust store (`pythia/net.py`).
-- [ ] **Phase 4 — Planning:** NL → structured query; Greek/Greeklish normalization.
+- [~] **Phase 4 — Planning:** `make_plan()` (`planning/planner.py`) → typed `QueryPlan`
+      (dataset + CSV/JSON resource + validated intent params) via normalize → retrieve →
+      select → one LLM call. LLM = local **Qwen/Ollama** behind a `Protocol`+fake
+      (`pythia/llm.py`, ADR-0004; Anthropic now RAGAS-only). Greeklish→Greek transliteration
+      + `en`-safe language detection (`planning/normalize.py`, ADR-0005). Grounded-or-silent
+      via an LLM relevance gate + a degraded score-floor fallback (fused scores now surfaced
+      on `Candidate`). **Code + 42 tests green (`make check`).** **Eval gate pending:**
+      normalization off-vs-on (`make eval --no-normalize` / default) needs **e5-large**,
+      which fails to download in this environment (proxy/`WinError 10054`); ADR-0005 stays
+      Proposed until the greeklish lift + `el`/`en` non-regression are measured.
 - [ ] **Phase 5 — Access:** resilient data client + SQLite cache + schema sniffing.
 - [ ] **Phase 6 — Synthesis:** grounded answer + Vega-Lite spec + freshness footer.
 - [ ] **Phase 7 — Interface:** FastAPI + HTMX chat.

@@ -12,7 +12,7 @@ tracks where we actually are and what's next._
 | 2 | Ingestion (harvest + normalize → SQLite) | ✅ done, committed |
 | 3 | Retrieval (embeddings, hybrid search, golden eval) | ✅ done, committed (e5-small) |
 | 3.1 | e5-large swap + incremental indexing | ✅ done, committed |
-| 4 | Planning (NL → structured query) | ⬜ not started |
+| 4 | Planning (NL → structured query) | 🟡 code+tests done; eval gate pending e5-large |
 | 5 | Access (resilient data client + cache) | ⬜ not started |
 | 6 | Synthesis (grounded answer + chart + footer) | ⬜ not started |
 | 7 | Interface (FastAPI + HTMX) | ⬜ not started |
@@ -75,11 +75,22 @@ OpenAI-compatible API at `http://localhost:11434/v1` (native `/api/chat` also av
   it beats hybrid-only on the golden set without regressing `el`. **Eval run still pending.**
 - **Expand the golden set** beyond 26 once more datasets are exercised.
 
-### Phase 4 — Planning (`src/pythia/planning/planner.py`)
-- NL question → structured query: which dataset, which resource, parameters (date range,
-  region, metric). Greek/Greeklish/accent normalization. LLM does language understanding
-  only; selection stays inspectable/testable. **LLM = local Qwen via Ollama** (see Direction
-  changes), model id in config — no Anthropic.
+### Phase 4 — Planning (`src/pythia/planning/planner.py`) — 🟡 code+tests done, eval pending
+- `make_plan()` → typed `QueryPlan` (dataset + CSV/JSON resource + validated intent params)
+  via normalize → `find_dataset` → `select_resource` → one structured LLM call. Dataset
+  **selection** and param **validation** are deterministic/tested; the LLM only proposes.
+- **LLM = local Qwen via Ollama** behind an `LLMClient` Protocol + `FakeLLM`
+  (`src/pythia/llm.py`, ADR-0004); Anthropic retained **only** for RAGAS. Prompts versioned
+  under `planning/prompts/`.
+- **Greeklish→Greek transliteration** + `en`-safe detection (`planning/normalize.py`,
+  ADR-0005); fed into retrieval and the eval (`run_eval.py --normalize/--no-normalize`).
+- Grounded-or-silent: LLM relevance gate (primary) + degraded score-floor fallback; fused
+  RRF scores now surfaced on `Candidate` (small Phase-3 change). Opt-in, default-off LLM
+  disambiguation (`planning_llm_disambiguate`).
+- **Status:** `make check` green (ruff + mypy strict + 42 new tests). **Eval gate still
+  pending** — the off-vs-on normalization comparison needs **e5-large**, which fails to
+  download here (proxy/`WinError 10054`). ADR-0004/0005 remain **Proposed** until the
+  greeklish lift + `el`/`en` non-regression are measured on a machine with the model cached.
 
 ### Phase 5 — Access (`src/pythia/access/{data_client,cache}.py`)
 - Per-resource fetch keyed off `datastore_active` (see `api_findings.md §3`):
