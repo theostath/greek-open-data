@@ -6,7 +6,12 @@ import sqlite3
 
 from pythia.ingest import db
 from pythia.ingest.models import DatasetRow
-from pythia.retrieval.lexical import build_fts_index, lexical_search, rrf_fuse
+from pythia.retrieval.lexical import (
+    build_fts_index,
+    lexical_search,
+    rrf_fuse,
+    rrf_fuse_scored,
+)
 
 
 def _dataset(id_: str, embed_text: str) -> DatasetRow:
@@ -137,3 +142,19 @@ def test_rrf_fuse_stable_tie_break_by_first_appearance() -> None:
 def test_rrf_fuse_empty_returns_empty() -> None:
     """No rankings yields an empty list."""
     assert rrf_fuse([]) == []
+
+
+def test_rrf_fuse_scored_returns_descending_scores() -> None:
+    """rrf_fuse_scored returns (id, score) pairs, best-first, with a higher top score."""
+    scored = rrf_fuse_scored([["a", "b"], ["b", "c"]])
+    ids = [item for item, _ in scored]
+    assert ids[0] == "b"
+    scores = [score for _, score in scored]
+    assert scores == sorted(scores, reverse=True)
+    assert scores[0] > scores[-1]
+
+
+def test_rrf_fuse_scored_top_of_both_lists_scores_two_over_k() -> None:
+    """An id ranked first in both lists scores 2/k (the theoretical maximum)."""
+    scored = dict(rrf_fuse_scored([["x", "y"], ["x", "z"]], k=60))
+    assert scored["x"] == 2.0 / 60

@@ -12,7 +12,7 @@ tracks where we actually are and what's next._
 | 2 | Ingestion (harvest + normalize → SQLite) | ✅ done, committed |
 | 3 | Retrieval (embeddings, hybrid search, golden eval) | ✅ done, committed (e5-small) |
 | 3.1 | e5-large swap + incremental indexing | ✅ done, committed |
-| 4 | Planning (NL → structured query) | ⬜ not started |
+| 4 | Planning (NL → structured query) | 🟡 eval gate run 2026-07-28; one honesty bug left |
 | 5 | Access (resilient data client + cache) | ⬜ not started |
 | 6 | Synthesis (grounded answer + chart + footer) | ⬜ not started |
 | 7 | Interface (FastAPI + HTMX) | ⬜ not started |
@@ -70,15 +70,65 @@ OpenAI-compatible API at `http://localhost:11434/v1` (native `/api/chat` also av
 ### Retrieval quality backlog (Phase 3 follow-ups)
 - **Greeklish is the weak spot (0.30 MRR).** Highest-value fix: a **Greeklish→Greek
   transliteration** step before retrieval. (Write an ADR.)
-- **Reranker (ADR-0002):** eval-gated cross-encoder over top-k; adopt only if it beats
-  hybrid-only on the golden set.
+- **Reranker (ADR-0002):** cross-encoder `pythia.retrieval.rerank` landed behind
+  `rerank_enabled` (default off); `make eval` runs off-vs-on. Flip ADR to Accepted only if
+  it beats hybrid-only on the golden set without regressing `el`. **Eval run still pending.**
 - **Expand the golden set** beyond 26 once more datasets are exercised.
 
-### Phase 4 — Planning (`src/pythia/planning/planner.py`)
-- NL question → structured query: which dataset, which resource, parameters (date range,
-  region, metric). Greek/Greeklish/accent normalization. LLM does language understanding
-  only; selection stays inspectable/testable. **LLM = local Qwen via Ollama** (see Direction
-  changes), model id in config — no Anthropic.
+### Phase 4 — Planning (`src/pythia/planning/planner.py`) — 🟡 code+tests done, eval pending
+- `make_plan()` → typed `QueryPlan` (dataset + CSV/JSON resource + validated intent params)
+  via normalize → `find_dataset` → `select_resource` → one structured LLM call. Dataset
+  **selection** and param **validation** are deterministic/tested; the LLM only proposes.
+- **LLM = local Qwen via Ollama** behind an `LLMClient` Protocol + `FakeLLM`
+  (`src/pythia/llm.py`, ADR-0004); Anthropic retained **only** for RAGAS. Prompts versioned
+  under `planning/prompts/`.
+- **Greeklish→Greek transliteration** + `en`-safe detection (`planning/normalize.py`,
+  ADR-0005); fed into retrieval and the eval (`run_eval.py --normalize/--no-normalize`).
+- Grounded-or-silent: LLM relevance gate (primary) + degraded score-floor fallback; fused
+  RRF scores now surfaced on `Candidate` (small Phase-3 change). Opt-in, default-off LLM
+  disambiguation (`planning_llm_disambiguate`).
+- **Status (2026-07-28): eval gate RUN.** `make check` green (ruff + mypy strict + 113
+  tests). The e5-large download was never actually blocked — it works once
+  `pythia.net.use_system_trust_store()` is called first; the old `WinError 10054` note was a
+  misdiagnosis (that error is a separate, intermittent HF HEAD flake — use
+  `HF_HUB_OFFLINE=1` when models are cached).
+
+**Eval matrix** (n=26, e5-large, tombstone-free index, reproducible):
+
+| Arm | OVERALL MRR | R@1 | el | en | greeklish |
+|---|---|---|---|---|---|
+| norm OFF, rerank OFF | 0.515 | 0.42 | 0.595 | 0.571 | 0.319 |
+| norm ON, rerank OFF | 0.544 | 0.46 | 0.595 | 0.571 | 0.429 |
+| **norm OFF, rerank ON** | **0.652** | **0.62** | **0.729** | **0.714** | **0.457** |
+| norm ON, rerank ON | 0.644 | 0.62 | 0.729 | 0.714 | 0.429 |
+
+- **ADR-0005 → Accepted for the no-reranker config.** Greeklish +0.110 MRR, `el`/`en`
+  bit-identical. Does *not* stack with the reranker (they fix the same weakness).
+- **ADR-0002 → Accepted, default-off.** +0.137 MRR but **~28 s/query** on CPU.
+- **ADR-0004 → Accepted** after the smoke run found the planner LLM path had never worked:
+  `qwen3.5:9b` is a reasoning model and returned empty `content` over the OpenAI-compatible
+  endpoint. Fixed via native `/api/chat` + `think:false` (76 s → 10 s).
+
+### Known issues to fix before Phase 4 closes
+
+1. ~~**Honesty bug (ordering):** `select_resource` ran before the LLM relevance gate.~~
+   **Fixed 2026-07-29:** relevance is decided first, so `UNSUPPORTED` now means "relevant
+   but no CSV/JSON" and *"what is the capital of France?"* returns `NO_MATCH`.
+2. **Golden set is too small.** At n=26 one question ≈ 0.04 MRR — larger than several
+   effects being compared. Per-language slices are n=7–12. Expand before trusting any
+   further retrieval/planning refinement.
+3. **Retrieval quality on real questions looks weaker than the golden set suggests** — the
+   smoke run's `el`/`en` questions both retrieved irrelevant datasets (the LLM gate
+   correctly refused them). Worth investigating alongside (2).
+
+### Chroma tombstone finding
+
+A full re-embed that **upserts over** an existing collection leaves one HNSW tombstone per
+row (live 21,806 vs `max seq_id` 42,798). That made ANN results **nondeterministic across
+processes** — the same eval returned MRR 0.483–0.526. `build_chroma_index` now drops and
+recreates the collection when every row changed (regression-tested). The live index was
+repaired by copying vectors into a fresh collection (**no re-embedding**); the old graph is
+retained as `datasets_tombstoned` and can be deleted once the new one is trusted.
 
 ### Phase 5 — Access (`src/pythia/access/{data_client,cache}.py`)
 - Per-resource fetch keyed off `datastore_active` (see `api_findings.md §3`):
@@ -103,7 +153,9 @@ OpenAI-compatible API at `http://localhost:11434/v1` (native `/api/chat` also av
 
 ## Operational / infra TODOs
 
-- **No git remote / no push yet** — all commits are local. Add a remote + push when ready.
+- **Branching model (from 2026-07-29):** `develop` is the default branch and the
+  integration point; feature branches stem from `develop` and merge back there. `main` holds
+  released state. Remote: `https://github.com/theostath/greek-open-data`.
 - **`make` is not installed on this Windows box** — use the `uv run …` equivalents (the
   Makefile is correct wherever `make` exists). Optional: `winget install ezwinports.make`.
 - **LF→CRLF** warnings on commit — optionally add a `.gitattributes` to pin LF.

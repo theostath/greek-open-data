@@ -6,6 +6,7 @@ built indexes and prints per-language metrics.
 
 from __future__ import annotations
 
+import argparse
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,7 +16,9 @@ from config import get_settings
 
 from pythia.ingest.db import connect
 from pythia.logging_setup import configure_logging, get_logger, log_event
+from pythia.planning.normalize import normalize_question
 from pythia.retrieval.embed import load_model
+from pythia.retrieval.rerank import Scorer, load_reranker
 from pythia.retrieval.search import find_dataset
 
 LOGGER_NAME = "pythia.eval.run_eval"
@@ -71,8 +74,18 @@ def _format_metrics(label: str, ranks: list[float], hits: dict[int, int]) -> str
     return f"{label:<10} n={n:<3} MRR={mrr:.3f}  {recalls}"
 
 
-def main() -> int:
-    """Run the golden-question eval against the built indexes; print metrics."""
+def main(argv: list[str] | None = None) -> int:
+    """Run the golden-question eval against the built indexes; print metrics.
+
+    ``--normalize`` (default) applies the Phase 4 query normalization (Greeklish→Greek)
+    before retrieval; ``--no-normalize`` reproduces the raw Phase 3 baseline for the
+    ADR-0005 off-vs-on comparison.
+    """
+    parser = argparse.ArgumentParser(description="Golden-question retrieval eval.")
+    parser.add_argument("--normalize", action="store_true", default=True)
+    parser.add_argument("--no-normalize", dest="normalize", action="store_false")
+    args = parser.parse_args(argv)
+
     configure_logging()
     logger = get_logger(LOGGER_NAME)
     settings = get_settings()
@@ -80,6 +93,13 @@ def main() -> int:
 
     conn = connect(settings.catalog_db_path)
     model = load_model(settings.embedding_model)
+    reranker: Scorer | None = (
+        load_reranker(settings.rerank_model) if settings.rerank_enabled else None
+    )
+    log_event(
+        logger, logging.INFO, "eval.config",
+        rerank_enabled=settings.rerank_enabled, normalize=args.normalize,
+    )
 
     ranks: list[float] = []
     hits = {k: 0 for k in K_VALUES}
@@ -87,12 +107,15 @@ def main() -> int:
     by_lang_hits: dict[str, dict[int, int]] = {}
 
     for question in questions:
+        text = normalize_question(question.question)[0] if args.normalize else question.question
         candidates = find_dataset(
-            question.question,
+            text,
             conn=conn,
             model=model,
             chroma_path=settings.chroma_path,
             top_k=max(K_VALUES),
+            reranker=reranker,
+            rerank_pool=settings.rerank_pool,
         )
         ranked_ids = [c.id for c in candidates]
         rr = reciprocal_rank(question.expected_id, ranked_ids)
