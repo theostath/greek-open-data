@@ -56,6 +56,32 @@ class Settings(BaseSettings):
     # Minimum question length (chars, stripped) below which we decline without an LLM call.
     planning_min_question_chars: int = 3
 
+    # Access (Phase 5, ADR-0006). Treat every fetch as untrusted third-party content:
+    # 75% of fetchable CSV/JSON resources are NOT hosted by data.gov.gr.
+    cache_db_path: str = "data/cache.sqlite"
+    # httpx's read timeout is PER-CHUNK, so it cannot bound a slow drip; access_deadline_s
+    # is the real wall-clock budget across redirects, DataStore pages and retries.
+    access_read_timeout_s: float = 30.0
+    access_connect_timeout_s: float = 8.0
+    access_deadline_s: float = 90.0
+    # Abort a transfer sustaining less than this — the only defence against a server that
+    # dribbles bytes slowly enough to never trip the per-chunk read timeout.
+    access_min_throughput_bps: int = 10_000
+    access_max_rows: int = 50_000
+    # Load-bearing, not headroom: the largest declared resource is ~174 MiB.
+    access_max_bytes: int = 25_000_000
+    access_datastore_page_limit: int = 32_000  # measured ceiling; larger is silently clamped
+    access_retry_attempts: int = 4
+    access_max_redirects: int = 3
+    # Ceiling on EVERY cache row: metadata_modified is catalog-level and does not move when
+    # a file is replaced in place, so without this 74% of resources would cache forever.
+    access_cache_ttl_s: int = 2_592_000  # 30 days
+    access_cache_max_bytes: int = 2_000_000_000
+    # Politeness toward ~51 small municipal GIS hosts; the portal blocks crawlers.
+    access_host_min_interval_s: float = 1.0
+    access_allow_http: bool = False  # 109 resources are plain http:// — opt in explicitly
+    access_allow_off_portal: bool = True
+
 
 def get_settings() -> Settings:
     """Return application settings loaded from the environment."""

@@ -1,4 +1,6 @@
-.PHONY: setup probe harvest index eval dev check
+.PHONY: setup probe harvest index eval fetch cache-purge dev check
+
+RESOURCE_ID ?=
 
 setup:  ## uv sync (pre-commit hooks added in a later phase)
 	uv sync
@@ -14,6 +16,12 @@ index:  ## Phase 3: build dense (Chroma) + lexical (FTS5) indexes
 
 eval:  ## Phase 3: run the golden-question retrieval eval
 	uv run python -m pythia.eval.run_eval
+
+fetch:  ## Phase 5: fetch one resource -> typed table (make fetch RESOURCE_ID=<id>)
+	uv run python -m pythia.access.data_client --resource-id $(RESOURCE_ID)
+
+cache-purge:  ## Phase 5: drop cache rows past the TTL ceiling
+	uv run python -c "from config import get_settings; from pythia.access.cache import connect_cache, init_cache_db, purge_expired; c=get_settings(); conn=connect_cache(c.cache_db_path); init_cache_db(conn); print('purged', purge_expired(conn, ttl_s=c.access_cache_ttl_s)); conn.commit()"
 
 dev:  ## Phase 7
 	@echo "dev: not implemented until Phase 7"
