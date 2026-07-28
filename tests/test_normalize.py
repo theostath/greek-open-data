@@ -79,6 +79,26 @@ def test_embed_text_joins_only_nonempty(first: dict[str, Any]) -> None:
     assert not dataset.embed_text.endswith("\n")
 
 
+def test_embed_text_high_signal_fields_lead() -> None:
+    """Both titles and tags precede the long descriptions so they survive truncation."""
+    raw = _minimal_dataset(
+        title="AAA_title",
+        title_translated={"en": "BBB_title_en"},
+        tags=[{"name": "CCC_tag"}],
+        notes="DDD_notes",
+        notes_translated={"en": "EEE_notes_en"},
+    )
+    result = normalize_package(raw, HARVESTED_AT)
+    assert result is not None
+    dataset, _ = result
+    text = dataset.embed_text
+    notes_pos = text.index("DDD_notes")
+    assert text.index("AAA_title") < notes_pos
+    assert text.index("BBB_title_en") < notes_pos
+    assert text.index("CCC_tag") < notes_pos
+    assert notes_pos < text.index("EEE_notes_en")
+
+
 def test_list_fields(first: dict[str, Any]) -> None:
     """List-valued fields are real lists with expected content."""
     result = normalize_package(first, HARVESTED_AT)
