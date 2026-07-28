@@ -209,9 +209,8 @@ Status legend: [ ] not started · [~] in progress · [x] done
       **accepted, default-off**. ADR-0004 **accepted** after the smoke run exposed that the
       planner LLM path never worked (reasoning model returned empty `content`); fixed by
       switching to Ollama's native `/api/chat` with `think:false` (76 s → 10 s).
-      **Known gap:** `select_resource` runs *before* the LLM relevance gate, so an
-      irrelevant dataset with no CSV/JSON reports `unsupported` instead of `no_match` —
-      misleading under "grounded or silent". Fix before closing Phase 4.
+      Relevance is now gated **before** resource selection, so `unsupported` means
+      "relevant but no CSV/JSON" and off-topic questions correctly return `no_match`.
 - [ ] **Phase 5 — Access:** resilient data client + SQLite cache + schema sniffing.
 - [ ] **Phase 6 — Synthesis:** grounded answer + Vega-Lite spec + freshness footer.
 - [ ] **Phase 7 — Interface:** FastAPI + HTMX chat.

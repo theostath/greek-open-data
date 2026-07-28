@@ -111,10 +111,9 @@ OpenAI-compatible API at `http://localhost:11434/v1` (native `/api/chat` also av
 
 ### Known issues to fix before Phase 4 closes
 
-1. **Honesty bug (ordering):** `planner.make_plan` calls `select_resource` *before* the LLM
-   relevance gate, so an irrelevant dataset lacking CSV/JSON returns `UNSUPPORTED`
-   ("we have it but can't read it") instead of `NO_MATCH` ("nothing covers this").
-   Reproduced with *"what is the capital of France?"*. Violates Principle #1.
+1. ~~**Honesty bug (ordering):** `select_resource` ran before the LLM relevance gate.~~
+   **Fixed 2026-07-29:** relevance is decided first, so `UNSUPPORTED` now means "relevant
+   but no CSV/JSON" and *"what is the capital of France?"* returns `NO_MATCH`.
 2. **Golden set is too small.** At n=26 one question ≈ 0.04 MRR — larger than several
    effects being compared. Per-language slices are n=7–12. Expand before trusting any
    further retrieval/planning refinement.
@@ -154,7 +153,9 @@ retained as `datasets_tombstoned` and can be deleted once the new one is trusted
 
 ## Operational / infra TODOs
 
-- **No git remote / no push yet** — all commits are local. Add a remote + push when ready.
+- **Branching model (from 2026-07-29):** `develop` is the default branch and the
+  integration point; feature branches stem from `develop` and merge back there. `main` holds
+  released state. Remote: `https://github.com/theostath/greek-open-data`.
 - **`make` is not installed on this Windows box** — use the `uv run …` equivalents (the
   Makefile is correct wherever `make` exists). Optional: `winget install ezwinports.make`.
 - **LF→CRLF** warnings on commit — optionally add a `.gitattributes` to pin LF.
