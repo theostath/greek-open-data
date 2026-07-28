@@ -197,7 +197,7 @@ Status legend: [ ] not started · [~] in progress · [x] done
       (el 0.56 / en 0.52 / greeklish 0.30 MRR). Greeklish is the weak spot — next levers:
       e5-large swap, reranker (ADR-0002), Greeklish→Greek transliteration. TLS to Hugging Face
       goes through the OS trust store (`pythia/net.py`).
-- [~] **Phase 4 — Planning:** `make_plan()` (`planning/planner.py`) → typed `QueryPlan`
+- [x] **Phase 4 — Planning:** `make_plan()` (`planning/planner.py`) → typed `QueryPlan`
       (dataset + CSV/JSON resource + validated intent params) via normalize → retrieve →
       select → one LLM call. LLM = local **Qwen/Ollama** behind a `Protocol`+fake
       (`pythia/llm.py`, ADR-0004; Anthropic now RAGAS-only). Greeklish→Greek transliteration
@@ -211,6 +211,11 @@ Status legend: [ ] not started · [~] in progress · [x] done
       switching to Ollama's native `/api/chat` with `think:false` (76 s → 10 s).
       Relevance is now gated **before** resource selection, so `unsupported` means
       "relevant but no CSV/JSON" and off-topic questions correctly return `no_match`.
+      **End-to-end on the golden set (n=26): 6 MATCHED on the correct dataset, 0 matched
+      on a wrong one, 6 UNSUPPORTED (right dataset, no CSV/JSON), 12 NO_MATCH.** Zero
+      wrong matches — grounded-or-silent holds. The ceiling is retrieval R@1 (12/26 put
+      the right dataset first) and resource format, **not** the planner: both are
+      Phase 3 / Phase 5 concerns.
 - [ ] **Phase 5 — Access:** resilient data client + SQLite cache + schema sniffing.
 - [ ] **Phase 6 — Synthesis:** grounded answer + Vega-Lite spec + freshness footer.
 - [ ] **Phase 7 — Interface:** FastAPI + HTMX chat.
@@ -240,44 +245,39 @@ secrets leaked; and any new external-API assumption is reflected in `docs/api_fi
 
 ---
 
-## 11. Git workflow (adopted 2026-07-29)
+## 11. Git workflow — Gitflow (adopted 2026-07-29)
 
-Remote: <https://github.com/theostath/greek-open-data>
+Remote: <https://github.com/theostath/greek-open-data> · default branch: **`develop`**
 
-### Branch model
+**The branching model itself lives in the global `~/.claude/CLAUDE.md` ("Git Branching
+Model — Gitflow") and is not duplicated here.** It defines the five branch types
+(`main`, `develop`, `feat|fix|docs|chore/*`, `release/*`, `hotfix/*`), which branch
+merges where, tagging, and the `--no-ff` / branch-deletion rules. Read it first.
 
-```
-main ──────────●────────────────────────────  released / stable state
-                \
-develop ─────────●───●───●───●──────────────  DEFAULT branch; integration point
-                      \     /
-feat/xyz ──────────────●───●                  branch from develop, merge to develop
-```
+Repo-specific notes only:
 
-- **`develop` is the default branch** and the integration point for all work.
-- **Feature branches stem from `develop`** and merge back into `develop` — never
-  branch a feature off `main`.
-- **`main` holds released state.** It moves only via a deliberate `develop` → `main`
-  release merge, never by direct commits.
-- Naming: `feat/<short-slug>`, `fix/<short-slug>`, `docs/<short-slug>`,
-  `chore/<short-slug>`.
-- Merge with `--no-ff` so branch topology stays visible in history.
-- Delete feature branches once merged (`git branch -d`, which refuses unmerged work).
-
-### Per-feature checklist
+### Per-change checklist here
 
 1. `git checkout develop && git pull`
-2. `git checkout -b feat/<slug>`
-3. Open a **GitHub Issue** using the structure in the global CLAUDE.md; record the branch
-   name and origin in it before implementing.
-4. Commit in small, focused **Conventional Commits** (`type(scope): description`).
-   No AI attribution trailers.
-5. `make check` green + tests for new logic; any retrieval/planning change also needs
-   `make eval` numbers reported in the PR/commit (§9).
-6. Open a PR **targeting `develop`** with `Closes #<issue>` so the issue auto-closes.
+2. `git checkout -b feat/<slug>` (never off `main` — only `hotfix/*` does that)
+3. Open a **GitHub Issue** using the structure in the global CLAUDE.md; record the
+   branch name and origin in it before implementing.
+4. Small, focused **Conventional Commits**. No AI attribution trailers.
+5. `make check` green + tests for new logic. Any retrieval/planning change **must** also
+   report `make eval` numbers in the PR/commit — see §9.
+6. PR **targets `develop`** with `Closes #<issue>`.
 7. After merge, delete the branch locally and on the remote.
 
-### Releases
+### Eval-gated changes and releases
 
-When `develop` is ready to ship, merge `develop` → `main` (`--no-ff`) and tag it. Nothing
-else writes to `main`.
+Because §9 ties "done" to eval metrics, a `release/*` branch is the right place to
+re-run `make eval` on the release candidate and record the numbers in the tag message —
+retrieval quality is the product here, so a release without current metrics is untagged
+work. Note the eval is only meaningful on a **tombstone-free** Chroma collection (§8,
+Phase 4 notes); a rebuilt-by-upsert index makes the numbers non-reproducible.
+
+### CI caveat
+
+The global CI guideline says CI runs on pushes to `main` and PRs targeting `main`. Under
+Gitflow that misses almost everything, since day-to-day PRs target `develop`. CI here
+should trigger on **both** `main` and `develop` plus PRs targeting either.
