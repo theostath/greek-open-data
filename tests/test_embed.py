@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -127,6 +128,54 @@ def test_incremental_embeds_only_changed(model: SentenceTransformer, tmp_path: P
     db.upsert_dataset(conn, _row("b", "τουρισμός και αφίξεις επισκεπτών"))
     conn.commit()
     assert embed.build_chroma_index(conn, model, chroma_path=chroma_path) == 1
+
+
+def _vector_seq_high_water(chroma_path: str) -> int:
+    """Highest embedding seq_id written to this store.
+
+    Chroma updates the ``embeddings`` row in place on upsert, so row count does not
+    reveal tombstones — but every upsert still burns a new seq_id, leaving a
+    soft-deleted entry in the HNSW graph. seq_id high-water vs live count is therefore
+    the signal: equal means a clean graph, higher means tombstones.
+    """
+    conn = sqlite3.connect(f"file:{Path(chroma_path) / 'chroma.sqlite3'}?mode=ro", uri=True)
+    try:
+        return int(conn.execute("SELECT coalesce(max(seq_id), 0) FROM embeddings").fetchone()[0])
+    finally:
+        conn.close()
+
+
+def test_full_reembed_recreates_collection_without_tombstones(
+    model: SentenceTransformer, tmp_path: Path
+) -> None:
+    """Re-embedding every dataset rebuilds the collection instead of upserting in place.
+
+    HNSW has no true update: upserting every vector would leave one tombstone per row,
+    which degrades recall and makes ANN results vary between processes.
+    """
+    conn = db.connect(":memory:")
+    db.init_db(conn)
+    ids = ["a", "b", "c"]
+    for dataset_id in ids:
+        db.upsert_dataset(conn, _row(dataset_id, f"αρχικό κείμενο {dataset_id}"))
+    conn.commit()
+
+    chroma_path = str(tmp_path / "chroma")
+    assert embed.build_chroma_index(conn, model, chroma_path=chroma_path) == 3
+    assert _vector_seq_high_water(chroma_path) == 3
+
+    # Every embed_text changes -> a full re-embed.
+    for dataset_id in ids:
+        db.upsert_dataset(conn, _row(dataset_id, f"εντελώς νέο κείμενο {dataset_id}"))
+    conn.commit()
+    assert embed.build_chroma_index(conn, model, chroma_path=chroma_path) == 3
+
+    # Upserting in place would burn 3 more seq_ids here, leaving 3 tombstones behind.
+    assert _vector_seq_high_water(chroma_path) == 3
+    hits = embed.dense_search(
+        "εντελώς νέο κείμενο a", top_k=3, model=model, chroma_path=chroma_path
+    )
+    assert sorted(hits) == ids
 
 
 def test_incremental_deletes_removed(model: SentenceTransformer, tmp_path: Path) -> None:

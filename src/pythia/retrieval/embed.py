@@ -78,6 +78,11 @@ def build_chroma_index(
     Only datasets whose ``embed_text`` changed since the last run are re-embedded
     (tracked via a per-vector content signature); datasets removed from the catalog
     are dropped from the index. A fresh index embeds everything.
+
+    When *every* dataset needs re-embedding over an already-populated collection, the
+    collection is dropped and recreated rather than upserted in place: HNSW has no true
+    update, so upserting every vector leaves one tombstone per row in the graph, which
+    degrades recall and makes ANN results vary between processes.
     """
     coll = _collection(chroma_path, collection)
     current = {
@@ -98,6 +103,11 @@ def build_chroma_index(
         if existing_sigs.get(dataset_id) != _signature(text)
     ]
     removed = [ex_id for ex_id in existing_sigs if ex_id not in current]
+
+    if existing_sigs and current and len(changed) == len(current):
+        _client(chroma_path).delete_collection(collection)
+        coll = _collection(chroma_path, collection)
+        removed = []  # the dropped collection took the stale vectors with it
 
     for start in range(0, len(changed), batch_size):
         chunk = changed[start : start + batch_size]
