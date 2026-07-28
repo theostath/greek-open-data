@@ -202,7 +202,7 @@ Status legend: [ ] not started · [~] in progress · [x] done
       select → one LLM call. LLM = local **Qwen/Ollama** behind a `Protocol`+fake
       (`pythia/llm.py`, ADR-0004; Anthropic now RAGAS-only). Greeklish→Greek transliteration
       + `en`-safe language detection (`planning/normalize.py`, ADR-0005). Grounded-or-silent
-      via an LLM relevance gate + a degraded score-floor fallback. **113 tests green.**
+      via an LLM relevance gate + a degraded score-floor fallback. **117 tests green.**
       **Eval gate RUN 2026-07-28** (n=26, e5-large): baseline MRR **0.515**; +normalization
       **0.544** (greeklish 0.319→0.429, `el`/`en` unchanged → ADR-0005 **accepted for the
       no-reranker config**); +reranker **0.652** but **~28 s/query** on CPU → ADR-0002
@@ -237,3 +237,47 @@ secrets leaked; and any new external-API assumption is reflected in `docs/api_fi
 - ~~Embedding strategy: title+description only, or include column/field names?~~ **Resolved
   (Phase 3):** embed `title + notes + tags` plus their English translations (the `embed_text`
   column); per-resource field names deferred — revisit if eval shows a gap.
+
+---
+
+## 11. Git workflow (adopted 2026-07-29)
+
+Remote: <https://github.com/theostath/greek-open-data>
+
+### Branch model
+
+```
+main ──────────●────────────────────────────  released / stable state
+                \
+develop ─────────●───●───●───●──────────────  DEFAULT branch; integration point
+                      \     /
+feat/xyz ──────────────●───●                  branch from develop, merge to develop
+```
+
+- **`develop` is the default branch** and the integration point for all work.
+- **Feature branches stem from `develop`** and merge back into `develop` — never
+  branch a feature off `main`.
+- **`main` holds released state.** It moves only via a deliberate `develop` → `main`
+  release merge, never by direct commits.
+- Naming: `feat/<short-slug>`, `fix/<short-slug>`, `docs/<short-slug>`,
+  `chore/<short-slug>`.
+- Merge with `--no-ff` so branch topology stays visible in history.
+- Delete feature branches once merged (`git branch -d`, which refuses unmerged work).
+
+### Per-feature checklist
+
+1. `git checkout develop && git pull`
+2. `git checkout -b feat/<slug>`
+3. Open a **GitHub Issue** using the structure in the global CLAUDE.md; record the branch
+   name and origin in it before implementing.
+4. Commit in small, focused **Conventional Commits** (`type(scope): description`).
+   No AI attribution trailers.
+5. `make check` green + tests for new logic; any retrieval/planning change also needs
+   `make eval` numbers reported in the PR/commit (§9).
+6. Open a PR **targeting `develop`** with `Closes #<issue>` so the issue auto-closes.
+7. After merge, delete the branch locally and on the remote.
+
+### Releases
+
+When `develop` is ready to ship, merge `develop` → `main` (`--no-ff`) and tag it. Nothing
+else writes to `main`.
