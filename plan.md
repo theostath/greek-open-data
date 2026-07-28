@@ -12,7 +12,7 @@ tracks where we actually are and what's next._
 | 2 | Ingestion (harvest + normalize → SQLite) | ✅ done, committed |
 | 3 | Retrieval (embeddings, hybrid search, golden eval) | ✅ done, committed (e5-small) |
 | 3.1 | e5-large swap + incremental indexing | ✅ done, committed |
-| 4 | Planning (NL → structured query) | 🟡 code+tests done; eval gate pending e5-large |
+| 4 | Planning (NL → structured query) | 🟡 eval gate run 2026-07-28; one honesty bug left |
 | 5 | Access (resilient data client + cache) | ⬜ not started |
 | 6 | Synthesis (grounded answer + chart + footer) | ⬜ not started |
 | 7 | Interface (FastAPI + HTMX) | ⬜ not started |
@@ -87,10 +87,49 @@ OpenAI-compatible API at `http://localhost:11434/v1` (native `/api/chat` also av
 - Grounded-or-silent: LLM relevance gate (primary) + degraded score-floor fallback; fused
   RRF scores now surfaced on `Candidate` (small Phase-3 change). Opt-in, default-off LLM
   disambiguation (`planning_llm_disambiguate`).
-- **Status:** `make check` green (ruff + mypy strict + 42 new tests). **Eval gate still
-  pending** — the off-vs-on normalization comparison needs **e5-large**, which fails to
-  download here (proxy/`WinError 10054`). ADR-0004/0005 remain **Proposed** until the
-  greeklish lift + `el`/`en` non-regression are measured on a machine with the model cached.
+- **Status (2026-07-28): eval gate RUN.** `make check` green (ruff + mypy strict + 113
+  tests). The e5-large download was never actually blocked — it works once
+  `pythia.net.use_system_trust_store()` is called first; the old `WinError 10054` note was a
+  misdiagnosis (that error is a separate, intermittent HF HEAD flake — use
+  `HF_HUB_OFFLINE=1` when models are cached).
+
+**Eval matrix** (n=26, e5-large, tombstone-free index, reproducible):
+
+| Arm | OVERALL MRR | R@1 | el | en | greeklish |
+|---|---|---|---|---|---|
+| norm OFF, rerank OFF | 0.515 | 0.42 | 0.595 | 0.571 | 0.319 |
+| norm ON, rerank OFF | 0.544 | 0.46 | 0.595 | 0.571 | 0.429 |
+| **norm OFF, rerank ON** | **0.652** | **0.62** | **0.729** | **0.714** | **0.457** |
+| norm ON, rerank ON | 0.644 | 0.62 | 0.729 | 0.714 | 0.429 |
+
+- **ADR-0005 → Accepted for the no-reranker config.** Greeklish +0.110 MRR, `el`/`en`
+  bit-identical. Does *not* stack with the reranker (they fix the same weakness).
+- **ADR-0002 → Accepted, default-off.** +0.137 MRR but **~28 s/query** on CPU.
+- **ADR-0004 → Accepted** after the smoke run found the planner LLM path had never worked:
+  `qwen3.5:9b` is a reasoning model and returned empty `content` over the OpenAI-compatible
+  endpoint. Fixed via native `/api/chat` + `think:false` (76 s → 10 s).
+
+### Known issues to fix before Phase 4 closes
+
+1. **Honesty bug (ordering):** `planner.make_plan` calls `select_resource` *before* the LLM
+   relevance gate, so an irrelevant dataset lacking CSV/JSON returns `UNSUPPORTED`
+   ("we have it but can't read it") instead of `NO_MATCH` ("nothing covers this").
+   Reproduced with *"what is the capital of France?"*. Violates Principle #1.
+2. **Golden set is too small.** At n=26 one question ≈ 0.04 MRR — larger than several
+   effects being compared. Per-language slices are n=7–12. Expand before trusting any
+   further retrieval/planning refinement.
+3. **Retrieval quality on real questions looks weaker than the golden set suggests** — the
+   smoke run's `el`/`en` questions both retrieved irrelevant datasets (the LLM gate
+   correctly refused them). Worth investigating alongside (2).
+
+### Chroma tombstone finding
+
+A full re-embed that **upserts over** an existing collection leaves one HNSW tombstone per
+row (live 21,806 vs `max seq_id` 42,798). That made ANN results **nondeterministic across
+processes** — the same eval returned MRR 0.483–0.526. `build_chroma_index` now drops and
+recreates the collection when every row changed (regression-tested). The live index was
+repaired by copying vectors into a fresh collection (**no re-embedding**); the old graph is
+retained as `datasets_tombstoned` and can be deleted once the new one is trusted.
 
 ### Phase 5 — Access (`src/pythia/access/{data_client,cache}.py`)
 - Per-resource fetch keyed off `datastore_active` (see `api_findings.md §3`):

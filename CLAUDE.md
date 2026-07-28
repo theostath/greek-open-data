@@ -202,11 +202,16 @@ Status legend: [ ] not started · [~] in progress · [x] done
       select → one LLM call. LLM = local **Qwen/Ollama** behind a `Protocol`+fake
       (`pythia/llm.py`, ADR-0004; Anthropic now RAGAS-only). Greeklish→Greek transliteration
       + `en`-safe language detection (`planning/normalize.py`, ADR-0005). Grounded-or-silent
-      via an LLM relevance gate + a degraded score-floor fallback (fused scores now surfaced
-      on `Candidate`). **Code + 42 tests green (`make check`).** **Eval gate pending:**
-      normalization off-vs-on (`make eval --no-normalize` / default) needs **e5-large**,
-      which fails to download in this environment (proxy/`WinError 10054`); ADR-0005 stays
-      Proposed until the greeklish lift + `el`/`en` non-regression are measured.
+      via an LLM relevance gate + a degraded score-floor fallback. **113 tests green.**
+      **Eval gate RUN 2026-07-28** (n=26, e5-large): baseline MRR **0.515**; +normalization
+      **0.544** (greeklish 0.319→0.429, `el`/`en` unchanged → ADR-0005 **accepted for the
+      no-reranker config**); +reranker **0.652** but **~28 s/query** on CPU → ADR-0002
+      **accepted, default-off**. ADR-0004 **accepted** after the smoke run exposed that the
+      planner LLM path never worked (reasoning model returned empty `content`); fixed by
+      switching to Ollama's native `/api/chat` with `think:false` (76 s → 10 s).
+      **Known gap:** `select_resource` runs *before* the LLM relevance gate, so an
+      irrelevant dataset with no CSV/JSON reports `unsupported` instead of `no_match` —
+      misleading under "grounded or silent". Fix before closing Phase 4.
 - [ ] **Phase 5 — Access:** resilient data client + SQLite cache + schema sniffing.
 - [ ] **Phase 6 — Synthesis:** grounded answer + Vega-Lite spec + freshness footer.
 - [ ] **Phase 7 — Interface:** FastAPI + HTMX chat.

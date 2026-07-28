@@ -2,8 +2,7 @@
 
 ## Status
 
-Proposed · 2026-07-13 (adopt only if the golden-set eval confirms a gain with no `el`/`en`
-regression — mirrors the ADR-0002 eval gate)
+**Accepted for the no-reranker configuration** · gate run 2026-07-28 (Proposed 2026-07-13)
 
 ## Context
 
@@ -36,11 +35,39 @@ remove_diacritics 2`).
 - Defaulting ambiguous ASCII to `en` protects the strong `en` slice from being corrupted by
   a false-positive transliteration (real English is dense with cues like `th`, `x`, `-is`).
 
+## Eval result (2026-07-28, n=26, e5-large, tombstone-free index)
+
+| Config | OVERALL MRR | el | en | greeklish MRR | greeklish R@1 |
+|---|---|---|---|---|---|
+| reranker OFF, norm OFF | 0.515 | 0.595 | 0.571 | 0.319 | 0.29 |
+| **reranker OFF, norm ON** | **0.544** | 0.595 | 0.571 | **0.429** | **0.43** |
+| reranker ON, norm OFF | **0.652** | 0.729 | 0.714 | **0.457** | 0.43 |
+| reranker ON, norm ON | 0.644 | 0.729 | 0.714 | 0.429 | 0.43 |
+
+**Gate passed without a reranker:** greeklish MRR +0.110 (+34% relative), and `el`/`en` are
+**bit-identical** with normalization on and off — direct confirmation that the `en`-safe
+margin rule never transliterates Greek or English questions, which was the main risk here.
+
+**But it does not stack with the reranker.** With reranking on, normalization is neutral-to-
+slightly-negative (0.652 → 0.644; greeklish 0.457 → 0.429). The two fix the same weakness:
+the cross-encoder already reads Greeklish well enough to recover the right dataset, and
+lossy transliteration then discards signal it could have used. Note the 0.008 overall gap is
+*within* the noise floor (one question ≈ 0.04 MRR at n=26), so treat the two reranker-on
+arms as tied rather than ranked; the greeklish-slice drop is the more meaningful signal.
+
+One honest caveat: greeklish **R@10 fell 0.57 → 0.43** with normalization even in the
+winning no-reranker arm. Transliteration pulls correct answers much higher when it finds
+them, but one question dropped out of the top 10 entirely. At n=7 greeklish questions that
+is a single item — the golden set is too small to resolve this. **Expanding the golden set
+is a precondition for trusting any refinement of this decision.**
+
 ## Consequences
 
-- **Eval-gated:** adoption is contingent on `make eval` (normalization off vs on) showing a
-  **greeklish lift with no `el`/`en` regression**. If `en`/`el` regress, transliteration is
-  kept behind a flag or dropped; the measured decision is recorded here when the eval runs.
+- **Adopted in the shipping configuration** (`rerank_enabled=false`, ADR-0002), where it is
+  a clear win. Kept as a normalization step that is trivially skippable
+  (`run_eval --no-normalize`) so the pairing can be re-measured if reranking is ever enabled.
+- **If ADR-0002's reranker is enabled**, re-measure before assuming normalization still
+  helps; current evidence says it does not.
 - Transliteration is lossy (many Greeklish spellings map to one Greek form); it improves
   recall, not perfect reconstruction.
 - Adds a small pure module + unit tests, including explicit English "must-not-transliterate"
