@@ -36,11 +36,14 @@ class Settings(BaseSettings):
     rerank_model: str = "BAAI/bge-reranker-v2-m3"
     rerank_pool: int = 20
 
-    # Planning (Phase 4, ADR-0004/0005). LLM = local Qwen via Ollama's OpenAI-compatible
-    # API; no API key, no network egress. Model id lives here, never inline.
-    llm_base_url: str = "http://localhost:11434/v1"
+    # Planning (Phase 4, ADR-0004/0005). LLM = local Qwen via Ollama's native /api/chat
+    # (needed to send think:false — see pythia/llm.py); no API key, no network egress.
+    # Model id lives here, never inline. A legacy ".../v1" base URL is still accepted.
+    llm_base_url: str = "http://localhost:11434"
     llm_model: str = "qwen3.5:9b"
-    llm_timeout_s: float = 30.0  # ceiling, not a target (9B on CPU); do not retry timeouts
+    # Ceiling, not a target: ~10s warm for a 9B on this CPU, but a cold load of the
+    # ~6GB model adds to the first call. Do not retry timeouts.
+    llm_timeout_s: float = 120.0
     llm_temperature: float = 0.0  # deterministic extraction
     llm_max_tokens: int = 512
     # Grounded-or-silent: LLM relevance gate is primary; this score floor is the

@@ -19,8 +19,43 @@ def _client(attempts: int = 3) -> OllamaClient:
 
 
 def _envelope(content: str) -> dict[str, Any]:
-    """Wrap model content in an OpenAI-compatible chat response envelope."""
-    return {"choices": [{"message": {"content": content}}]}
+    """Wrap model content in an Ollama native /api/chat response envelope."""
+    return {"message": {"role": "assistant", "content": content}}
+
+
+def test_uses_native_chat_endpoint_with_thinking_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The request targets /api/chat and disables thinking.
+
+    Qwen3.5 is a reasoning model: left enabled, it spends the whole token budget on
+    chain-of-thought and returns empty content, so every structured call fails.
+    """
+    seen: dict[str, Any] = {}
+
+    def fake_post(self: Any, url: str, json: Any) -> httpx.Response:
+        seen["url"] = url
+        seen["payload"] = json
+        return httpx.Response(200, json=_envelope('{"relevant": true}'))
+
+    monkeypatch.setattr(httpx.Client, "post", fake_post)
+    _client().complete_json([{"role": "user", "content": "q"}], max_tokens=16)
+
+    assert seen["url"].endswith("/api/chat")
+    assert "/v1" not in seen["url"]  # legacy base URL must be normalized away
+    assert seen["payload"]["think"] is False
+    assert seen["payload"]["format"] == "json"
+    assert seen["payload"]["options"]["num_predict"] == 16
+
+
+def test_empty_content_raises_clear_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Empty content (the reasoning-model failure mode) gets a named error, not a parse error."""
+    def fake_post(self: Any, url: str, json: Any) -> httpx.Response:
+        return httpx.Response(200, json=_envelope(""))
+
+    monkeypatch.setattr(httpx.Client, "post", fake_post)
+    with pytest.raises(LLMError, match="empty LLM content"):
+        _client().complete_json([], max_tokens=16)
 
 
 def test_fake_llm_returns_canned_response() -> None:

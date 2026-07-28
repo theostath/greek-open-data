@@ -1,4 +1,4 @@
-"""Shared LLM transport: local Qwen via Ollama's OpenAI-compatible API (ADR-0004).
+"""Shared LLM transport: local Qwen via Ollama's native ``/api/chat`` API (ADR-0004).
 
 Neutral home so both ``planning/`` and ``synthesis/`` can call an LLM without importing
 one from the other. ``LLMClient`` is a minimal ``Protocol`` (mirroring
@@ -40,7 +40,15 @@ class LLMClient(Protocol):
 
 
 class OllamaClient:
-    """``LLMClient`` backed by Ollama's OpenAI-compatible ``/chat/completions`` endpoint.
+    """``LLMClient`` backed by Ollama's native ``/api/chat`` endpoint.
+
+    Uses the native API rather than the OpenAI-compatible one specifically to send
+    ``think: false``. Qwen3.5 is a reasoning model: over ``/v1/chat/completions`` it
+    streams chain-of-thought into a separate ``reasoning`` field, exhausts the token
+    budget, and returns an **empty** ``content`` — so every structured call fails. The
+    OpenAI-compat ``chat_template_kwargs.enable_thinking`` flag does not suppress it.
+    Disabling thinking natively both fixes the parse and cuts latency ~7x (measured
+    76s -> 10s on CPU).
 
     Retries only connection errors and 5xx / model-loading responses; a generation
     ``ReadTimeout`` is *not* retried (it would just burn another full timeout on a slow
@@ -57,7 +65,8 @@ class OllamaClient:
         attempts: int = 3,
     ) -> None:
         """Configure the client; nothing is sent until ``complete_json`` is called."""
-        self._url = base_url.rstrip("/") + "/chat/completions"
+        # Tolerate a legacy ``.../v1`` base URL so existing .env files keep working.
+        self._url = base_url.rstrip("/").removesuffix("/v1") + "/api/chat"
         self._model = model
         self._timeout_s = timeout_s
         self._temperature = temperature
@@ -68,9 +77,10 @@ class OllamaClient:
         payload: dict[str, Any] = {
             "model": self._model,
             "messages": messages,
-            "temperature": self._temperature,
-            "max_tokens": max_tokens,
-            "response_format": {"type": "json_object"},
+            "stream": False,
+            "format": "json",
+            "think": False,
+            "options": {"temperature": self._temperature, "num_predict": max_tokens},
         }
         content = self._request(payload)
         try:
@@ -107,9 +117,16 @@ class OllamaClient:
             resp.raise_for_status()  # 4xx -> HTTPStatusError (not retried)
         data = resp.json()
         try:
-            content: str = data["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, TypeError) as exc:
+            content: str = data["message"]["content"]
+        except (KeyError, TypeError) as exc:
             raise LLMError(f"unexpected LLM envelope: {exc}") from exc
+        if not content.strip():
+            # Named explicitly: the reasoning-model failure mode this client exists to
+            # avoid. A bare json.loads("") would surface as a confusing parse error.
+            raise LLMError(
+                "empty LLM content (model emitted reasoning instead of an answer; "
+                "check that 'think: false' is honoured by this model)"
+            )
         return content
 
 
