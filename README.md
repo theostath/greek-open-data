@@ -75,7 +75,11 @@ uv sync
 # 2. Configure environment
 cp .env.example .env        # then edit .env
 #   DATA_GOV_GR_TOKEN  — portal token (catalog reads are anonymous; not required yet)
-#   ANTHROPIC_API_KEY  — for planning/synthesis (Phase 4+)
+#   ANTHROPIC_API_KEY  — RAGAS dev-eval ONLY (ADR-0003); never read on the serve path
+
+# Planning/synthesis use a LOCAL model — no API key. Requires Ollama running with
+# the configured model (config.llm_model, default qwen3.5:9b):
+#   ollama pull qwen3.5:9b
 
 # 3. Verify the toolchain is green
 uv run ruff check . && uv run mypy && uv run pytest -q
@@ -101,8 +105,15 @@ uv run python -m pythia.ingest.client_probe   # -> docs/api_probe_raw.md
 | Dev server | `make dev` | *(Phase 7)* |
 
 > `make index` is **incremental** — it re-embeds only datasets whose text changed (and drops
-> removed ones), so refreshing the catalog doesn't re-embed everything.
-> Current retrieval baseline (e5-large, 26 golden questions): **R@10 0.77, MRR 0.53**.
+> removed ones), so refreshing the catalog doesn't re-embed everything. When *every* dataset
+> changed it rebuilds the collection from scratch, so the HNSW graph stays tombstone-free.
+> A full CPU rebuild of all 21,806 datasets takes ~98 min — see
+> [`docs/benchmarks/embedding-index-build.md`](docs/benchmarks/embedding-index-build.md).
+>
+> Retrieval baseline (e5-large, 26 golden questions): **MRR 0.515, R@1 0.42, R@10 0.69**.
+> With Greeklish normalization: **MRR 0.544** (greeklish slice 0.319 → 0.429).
+> With the opt-in cross-encoder reranker (`RERANK_ENABLED=true`): **MRR 0.652, R@1 0.62** —
+> but ~28 s/query on CPU, which is why it ships **off** (ADR-0002).
 
 ## Data source
 
@@ -130,7 +141,8 @@ All of these are **local build artifacts** (gitignored) — regenerate them with
 - [x] **Phase 1** — API discovery: catalog + data endpoints documented.
 - [x] **Phase 2** — Ingestion: harvest + normalize metadata into SQLite.
 - [x] **Phase 3** — Retrieval: embeddings, hybrid search (dense + BM25, RRF), golden-set eval.
-- [ ] **Phase 4** — Planning: NL → structured query.
+- [x] **Phase 4** — Planning: NL → structured query (`make_plan` → typed `QueryPlan`),
+      Greeklish→Greek normalization, local Qwen via Ollama, grounded-or-silent refusal.
 - [ ] **Phase 5** — Access: resilient data client + cache.
 - [ ] **Phase 6** — Synthesis: grounded answer + chart + freshness footer.
 - [ ] **Phase 7** — Interface: FastAPI + HTMX chat.

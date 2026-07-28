@@ -12,7 +12,7 @@ tracks where we actually are and what's next._
 | 2 | Ingestion (harvest + normalize → SQLite) | ✅ done, committed |
 | 3 | Retrieval (embeddings, hybrid search, golden eval) | ✅ done, committed (e5-small) |
 | 3.1 | e5-large swap + incremental indexing | ✅ done, committed |
-| 4 | Planning (NL → structured query) | 🟡 eval gate run 2026-07-28; one honesty bug left |
+| 4 | Planning (NL → structured query) | ✅ done, merged (eval gate run, 0 wrong matches) |
 | 5 | Access (resilient data client + cache) | ⬜ not started |
 | 6 | Synthesis (grounded answer + chart + footer) | ⬜ not started |
 | 7 | Interface (FastAPI + HTMX) | ⬜ not started |
@@ -109,17 +109,34 @@ OpenAI-compatible API at `http://localhost:11434/v1` (native `/api/chat` also av
   `qwen3.5:9b` is a reasoning model and returned empty `content` over the OpenAI-compatible
   endpoint. Fixed via native `/api/chat` + `think:false` (76 s → 10 s).
 
-### Known issues to fix before Phase 4 closes
+### Phase 4 end-to-end result (golden set through `make_plan`, n=26)
+
+| Outcome | Count |
+|---|---|
+| `MATCHED` on the **correct** dataset | **6** |
+| `MATCHED` on the **wrong** dataset | **0** ← no silent-wrong-answer risk |
+| `UNSUPPORTED` (correct dataset, no CSV/JSON) | 6 |
+| `NO_MATCH` (retrieval missed) | 12 |
+
+**Grounded-or-silent holds perfectly: the planner never once matched confidently on the
+wrong dataset.** Retrieval placed the correct dataset first for 12/26 (46%, consistent
+with R@1 0.42–0.46); exactly half of those are then blocked by the dataset having no
+CSV/JSON resource. So the ceiling is retrieval quality and resource format — **not the
+planner**. Phase 4 is closed on that basis.
+
+### Carried forward (not Phase 4 blockers)
 
 1. ~~**Honesty bug (ordering):** `select_resource` ran before the LLM relevance gate.~~
    **Fixed 2026-07-29:** relevance is decided first, so `UNSUPPORTED` now means "relevant
    but no CSV/JSON" and *"what is the capital of France?"* returns `NO_MATCH`.
-2. **Golden set is too small.** At n=26 one question ≈ 0.04 MRR — larger than several
-   effects being compared. Per-language slices are n=7–12. Expand before trusting any
-   further retrieval/planning refinement.
-3. **Retrieval quality on real questions looks weaker than the golden set suggests** — the
-   smoke run's `el`/`en` questions both retrieved irrelevant datasets (the LLM gate
-   correctly refused them). Worth investigating alongside (2).
+2. **Golden set is too small (Phase 8).** At n=26 one question ≈ 0.04 MRR — larger than
+   several effects being compared. Per-language slices are n=7–12.
+3. **Retrieval R@1 is the binding constraint (Phase 3 follow-up).** 12/26 questions never
+   surface the right dataset. The reranker fixes much of this (R@1 0.42 → 0.62) but costs
+   ~28 s/query; finding the quality/latency knee across `rerank_pool` sizes is the
+   cheapest open lever.
+4. **Half the correctly-retrieved datasets have no tabular resource (Phase 5).** Expect
+   `UNSUPPORTED` to stay common until non-CSV/JSON handling is considered.
 
 ### Chroma tombstone finding
 
