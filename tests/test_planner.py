@@ -120,14 +120,52 @@ def test_short_question_is_no_match(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_no_tabular_resource_is_unsupported(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A matched dataset with only XLSX resources is UNSUPPORTED, not MATCHED."""
+    """A *relevant* dataset with only XLSX resources is UNSUPPORTED, not MATCHED."""
     _stub_retrieval(monkeypatch, [_candidate(_HIGH_SCORE)])
     llm = FakeLLM({"relevant": True})
     plan = _plan(_catalog("XLSX"), llm)
     assert plan.status is PlanStatus.UNSUPPORTED
     assert plan.dataset is not None
     assert plan.resource_id is None
-    assert llm.calls == []  # decided before the LLM call
+    assert len(llm.calls) == 1  # relevance is decided first; UNSUPPORTED implies relevant
+
+
+def test_irrelevant_dataset_without_resource_is_no_match(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An irrelevant dataset is NO_MATCH even when it also has no readable resource.
+
+    Regression: resource selection used to run before the relevance gate, so an
+    off-topic dataset reported UNSUPPORTED ("we hold this but cannot read the format"),
+    overstating coverage and breaking grounded-or-silent.
+    """
+    _stub_retrieval(monkeypatch, [_candidate(_HIGH_SCORE)])
+    llm = FakeLLM({"relevant": False, "reason": "the dataset is about something else"})
+    plan = _plan(_catalog("XLSX"), llm)
+    assert plan.status is PlanStatus.NO_MATCH
+    assert plan.resource_id is None
+    assert "something else" in plan.reason
+
+
+def test_degraded_below_floor_without_resource_is_no_match(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The degraded path applies the same ordering: below the floor is NO_MATCH."""
+    _stub_retrieval(monkeypatch, [_candidate(_LOW_SCORE)])
+    plan = _plan(_catalog("XLSX"), FakeLLM(error=LLMError("ollama down")))
+    assert plan.status is PlanStatus.NO_MATCH
+    assert plan.degraded is True
+
+
+def test_degraded_above_floor_without_resource_is_unsupported(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Degraded + above the floor + no readable resource is UNSUPPORTED, not MATCHED."""
+    _stub_retrieval(monkeypatch, [_candidate(_HIGH_SCORE)])
+    plan = _plan(_catalog("XLSX"), FakeLLM(error=LLMError("ollama down")))
+    assert plan.status is PlanStatus.UNSUPPORTED
+    assert plan.degraded is True
+    assert plan.resource_id is None
 
 
 def test_llm_error_degrades_to_score_floor_match(monkeypatch: pytest.MonkeyPatch) -> None:

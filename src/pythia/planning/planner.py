@@ -97,15 +97,10 @@ def make_plan(
                   "catalog integrity issue: dataset row missing", degraded=True, dataset=chosen),
         )
 
-    resource = select_resource(conn, chosen.id)
-    if resource is None:
-        return _log_and_return(
-            logger, started,
-            _plan(question, normalized, language, PlanStatus.UNSUPPORTED, candidates, conf,
-                  "dataset matched but has no CSV/JSON resource (not yet supported)",
-                  degraded=False, dataset=chosen),
-        )
-
+    # Relevance is decided *before* resource selection, deliberately. The other order
+    # reports UNSUPPORTED ("we have this data but cannot read the format") for a dataset
+    # that does not answer the question at all, which overstates coverage and breaks
+    # grounded-or-silent. UNSUPPORTED must mean "relevant but unreadable".
     messages: list[Message] = [
         {"role": "system", "content": _prompt("extract_plan.md")},
         {"role": "user", "content": _user_message(question, meta, reference_date)},
@@ -121,13 +116,19 @@ def make_plan(
                          reason or "LLM judged the dataset not relevant", degraded=False,
                          dataset=chosen)
         else:
-            params = _validate_params(raw.get("params"), limit_max=cfg.planning_limit_max)
-            plan = _plan(question, normalized, language, PlanStatus.MATCHED, candidates, conf,
-                         reason or "dataset matched", degraded=False, dataset=chosen,
-                         resource=resource, params=params)
+            resource = select_resource(conn, chosen.id)
+            if resource is None:
+                plan = _plan(question, normalized, language, PlanStatus.UNSUPPORTED, candidates,
+                             conf, "dataset matched but has no CSV/JSON resource "
+                             "(not yet supported)", degraded=False, dataset=chosen)
+            else:
+                params = _validate_params(raw.get("params"), limit_max=cfg.planning_limit_max)
+                plan = _plan(question, normalized, language, PlanStatus.MATCHED, candidates, conf,
+                             reason or "dataset matched", degraded=False, dataset=chosen,
+                             resource=resource, params=params)
     except LLMError as exc:
         plan = _degraded_plan(
-            question, normalized, language, candidates, conf, resource, chosen, cfg
+            question, normalized, language, candidates, conf, conn, chosen, cfg
         )
         log_event(logger, logging.WARNING, "planning.llm_degraded",
                   error=str(exc), confidence=round(conf, 3), status=plan.status.value)
@@ -137,16 +138,25 @@ def make_plan(
 
 def _degraded_plan(
     question: str, normalized: str, language: str, candidates: list[Candidate],
-    conf: float, resource: Any, chosen: Candidate, cfg: Settings,
+    conf: float, conn: sqlite3.Connection, chosen: Candidate, cfg: Settings,
 ) -> QueryPlan:
-    """Build the plan used when the LLM is unavailable: fall back to the score floor."""
-    if conf >= cfg.planning_score_threshold:
-        return _plan(question, normalized, language, PlanStatus.MATCHED, candidates, conf,
-                     "LLM unavailable; matched by retrieval score floor", degraded=True,
-                     dataset=chosen, resource=resource)
-    return _plan(question, normalized, language, PlanStatus.NO_MATCH, candidates, conf,
-                 "LLM unavailable and retrieval confidence below the floor", degraded=True,
-                 dataset=chosen)
+    """Build the plan used when the LLM is unavailable: fall back to the score floor.
+
+    Mirrors the main path's ordering: the score floor stands in for the relevance gate,
+    so a dataset below the floor is NO_MATCH regardless of what resources it has.
+    """
+    if conf < cfg.planning_score_threshold:
+        return _plan(question, normalized, language, PlanStatus.NO_MATCH, candidates, conf,
+                     "LLM unavailable and retrieval confidence below the floor", degraded=True,
+                     dataset=chosen)
+    resource = select_resource(conn, chosen.id)
+    if resource is None:
+        return _plan(question, normalized, language, PlanStatus.UNSUPPORTED, candidates, conf,
+                     "dataset matched but has no CSV/JSON resource (not yet supported)",
+                     degraded=True, dataset=chosen)
+    return _plan(question, normalized, language, PlanStatus.MATCHED, candidates, conf,
+                 "LLM unavailable; matched by retrieval score floor", degraded=True,
+                 dataset=chosen, resource=resource)
 
 
 def _plan(
