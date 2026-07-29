@@ -73,6 +73,11 @@ class TableData:
     rows: list[dict[str, str | None]]
     row_count: int
     complete: bool  # NO DEFAULT: overstating completeness is the failure this guards
+    # Also no default, for the same reason one layer over: Greek exports put a title banner
+    # above the real header, so column names are not always the publisher's column names.
+    # Downstream renders these labels and feeds them to an LLM; silently asserting they are
+    # trustworthy is the same class of overstatement as claiming completeness.
+    header_trusted: bool
     access_path: str  # "datastore" | "download"
     source_url: str  # the CKAN resource URL, never a resolved/signed one
     fetched_at: str  # ISO-8601

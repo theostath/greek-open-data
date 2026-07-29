@@ -224,12 +224,14 @@ def _fetch_datastore(
         for f in fields
     ]
     rows = [
-        {name: sniff._scalar(record.get(name)) for name in header}  # noqa: SLF001
+        {name: sniff.scalar(record.get(name)) for name in header}
         for record in records
     ]
     return TableData(
         resource_id=resource.id, dataset_id=resource.dataset_id, columns=columns, rows=rows,
         row_count=len(rows), complete=reason is None, incomplete_reason=reason,
+        # DataStore reports real field ids; there is no banner row in a JSON envelope.
+        header_trusted=True,
         upstream_total=total, access_path="datastore", source_url=target_url,
         fetched_at=datetime.now(UTC).isoformat(), off_portal=off_portal,
         transport_scheme=scheme, deferred_params=_deferred(params),
@@ -271,7 +273,8 @@ def _build_from_bytes(
     return TableData(
         resource_id=resource.id, dataset_id=resource.dataset_id, columns=columns,
         rows=parsed.rows, row_count=len(parsed.rows), complete=reason is None,
-        incomplete_reason=reason, access_path=access_path_used, source_url=target_url,
+        incomplete_reason=reason, header_trusted=parsed.header_trusted,
+        access_path=access_path_used, source_url=target_url,
         fetched_at=datetime.now(UTC).isoformat(), off_portal=off_portal,
         transport_scheme=scheme, encoding=encoding, delimiter=delimiter,
         bytes_read=bytes_read if bytes_read is not None else len(body),
