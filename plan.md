@@ -13,7 +13,7 @@ tracks where we actually are and what's next._
 | 3 | Retrieval (embeddings, hybrid search, golden eval) | ✅ done, committed (e5-small) |
 | 3.1 | e5-large swap + incremental indexing | ✅ done, committed |
 | 4 | Planning (NL → structured query) | ✅ done, merged (eval gate run, 0 wrong matches) |
-| 5 | Access (resilient data client + cache) | ⬜ not started |
+| 5 | Access (resilient data client + cache) | ✅ done (ADR-0006, verified live) |
 | 6 | Synthesis (grounded answer + chart + footer) | ⬜ not started |
 | 7 | Interface (FastAPI + HTMX) | ⬜ not started |
 | 8 | Eval & hardening | ⬜ not started |

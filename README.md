@@ -143,7 +143,8 @@ All of these are **local build artifacts** (gitignored) — regenerate them with
 - [x] **Phase 3** — Retrieval: embeddings, hybrid search (dense + BM25, RRF), golden-set eval.
 - [x] **Phase 4** — Planning: NL → structured query (`make_plan` → typed `QueryPlan`),
       Greeklish→Greek normalization, local Qwen via Ollama, grounded-or-silent refusal.
-- [ ] **Phase 5** — Access: resilient data client + cache.
+- [x] **Phase 5** — Access: resilient data client + cache + schema sniffing
+      (`make fetch RESOURCE_ID=<id>`).
 - [ ] **Phase 6** — Synthesis: grounded answer + chart + freshness footer.
 - [ ] **Phase 7** — Interface: FastAPI + HTMX chat.
 - [ ] **Phase 8** — Eval & hardening.

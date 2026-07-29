@@ -168,6 +168,8 @@ make probe        # run ingest/client_probe.py, write docs/api_findings.md
 make harvest      # pull catalog metadata into data/catalog.sqlite
 make index        # build/refresh the Chroma vector index
 make eval         # run the golden-question eval, print retrieval metrics
+make fetch RESOURCE_ID=<id>   # Phase 5: fetch one resource -> typed table
+make cache-purge  # drop access-cache rows past the TTL ceiling
 make dev          # uvicorn with reload
 make check        # ruff + mypy + pytest
 ```
@@ -216,7 +218,18 @@ Status legend: [ ] not started · [~] in progress · [x] done
       wrong matches — grounded-or-silent holds. The ceiling is retrieval R@1 (12/26 put
       the right dataset first) and resource format, **not** the planner: both are
       Phase 3 / Phase 5 concerns.
-- [ ] **Phase 5 — Access:** resilient data client + SQLite cache + schema sniffing.
+- [x] **Phase 5 — Access:** `fetch_resource()`/`fetch_for_plan()` (`access/data_client.py`)
+      → typed `TableData` via DataStore (`sort=_id asc`, paged) or file download. Layered
+      pure modules: `guard` (scheme/host/IP policy, manual ≤3 redirects — **75% of CSV/JSON
+      resources are off-portal**, and `localhost:11434` runs Ollama), `detect` (magic bytes;
+      stops an HTML 404 parsing as a table), `sniff` (Greek-restricted codecs, dialect,
+      type inference — no silent coercion). SQLite cache keyed on
+      `(resource_id, key_field, key_value)` with a TTL ceiling; incomplete bodies never
+      cached. **Honesty contract:** `TableData.complete` has no default and is validated
+      against `incomplete_reason`. Carries `publisher` for the Phase 6 footer. ADR-0006.
+      **215 tests green**; verified live on portal CSV (cp1253 + `;` auto-detected),
+      DataStore (24,390/24,390 rows) and an off-portal municipal endpoint.
+      Run with `make fetch RESOURCE_ID=<id>`.
 - [ ] **Phase 6 — Synthesis:** grounded answer + Vega-Lite spec + freshness footer.
 - [ ] **Phase 7 — Interface:** FastAPI + HTMX chat.
 - [ ] **Phase 8 — Eval & hardening:** retrieval metrics, honesty checks, observability.
