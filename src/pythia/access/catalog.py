@@ -50,3 +50,18 @@ def get_provenance(conn: sqlite3.Connection, dataset_id: str) -> Provenance:
     if row is None:
         return Provenance(dataset_title=None, publisher=None, last_updated=None)
     return Provenance(dataset_title=row[0], publisher=row[1], last_updated=row[2])
+
+
+def get_offered_formats(conn: sqlite3.Connection, dataset_id: str) -> list[str]:
+    """List the distinct resource formats the catalogue records for a dataset.
+
+    Phase 6's ``UNSUPPORTED`` refusal promises to name what *is* published, and neither
+    ``Candidate`` nor ``QueryPlan`` carries it. Phrase any rendering as "the catalogue lists",
+    not "the dataset offers": ADR-0006 documents the declared format being observably wrong.
+    """
+    rows = conn.execute(
+        "SELECT DISTINCT format FROM resources WHERE dataset_id = ? AND format IS NOT NULL "
+        "ORDER BY format",
+        (dataset_id,),
+    ).fetchall()
+    return [str(row[0]).strip().upper() for row in rows if str(row[0]).strip()]
