@@ -1,0 +1,68 @@
+name: CI
+
+# Gitflow: day-to-day PRs target `develop`, so triggering on `main` alone would miss
+# almost every change. Both long-lived branches are covered.
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: ruff + mypy + pytest (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # pyproject declares requires-python >=3.11, but local development only ever runs
+        # 3.12 — so 3.11 is otherwise untested and the claim is unverified.
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      # Dev tools live in [dependency-groups].dev (PEP 735), which `uv sync` installs by
+      # default; there are no optional-dependency extras to request.
+      - name: Install dependencies
+        run: uv sync --python ${{ matrix.python-version }}
+
+      # tests/test_embed.py and tests/test_search.py load real e5-small weights (~450 MB).
+      # Caching them keeps the suite fast and lets the tests run fully offline below.
+      # Model files are interpreter-independent, so the key is shared across the matrix.
+      - name: Cache Hugging Face models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-${{ runner.os }}-multilingual-e5-small-v1
+
+      - name: Pre-download the test embedding model
+        run: uv run python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('intfloat/multilingual-e5-small'); print('e5-small ready')"
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Types
+        run: uv run mypy
+
+      # Offline on purpose: with the model cached there is nothing left to fetch, and
+      # Hugging Face HEAD requests are intermittently flaky (WinError 10054-class
+      # failures), which would otherwise turn a green suite red at random.
+      - name: Tests
+        env:
+          HF_HUB_OFFLINE: "1"
+          TRANSFORMERS_OFFLINE: "1"
+        run: uv run pytest -q

@@ -289,8 +289,15 @@ retrieval quality is the product here, so a release without current metrics is u
 work. Note the eval is only meaningful on a **tombstone-free** Chroma collection (§8,
 Phase 4 notes); a rebuilt-by-upsert index makes the numbers non-reproducible.
 
-### CI caveat
+### CI
 
-The global CI guideline says CI runs on pushes to `main` and PRs targeting `main`. Under
-Gitflow that misses almost everything, since day-to-day PRs target `develop`. CI here
-should trigger on **both** `main` and `develop` plus PRs targeting either.
+`.github/workflows/ci.yml` runs `ruff` + `mypy` + `pytest` on **pushes to `main` and
+`develop`, and PRs targeting either** — the global guideline names `main` only, which under
+Gitflow would miss every day-to-day PR. Two repo-specific details:
+
+- **Matrix on Python 3.11 and 3.12.** `pyproject` declares `requires-python >=3.11` but
+  local development only ever runs 3.12, so 3.11 would otherwise be an unverified claim.
+- **Tests run with `HF_HUB_OFFLINE=1` / `TRANSFORMERS_OFFLINE=1`**, after a cached
+  pre-download of e5-small (only `test_embed.py` and `test_search.py` need real weights).
+  Hugging Face HEAD requests are intermittently flaky, and offline runs are verified to
+  produce identical results.
