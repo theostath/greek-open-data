@@ -98,3 +98,30 @@ Alternatives considered and rejected:
   small municipal servers and the portal is documented as blocking crawlers.
 - `access_max_bytes` bounds the wire, not resident memory: 50,000 dict rows cost roughly
   10–20× the raw CSV. Revisit with a columnar internal representation if it bites.
+
+## Amendments
+
+### 2026-07-29 — `header_trusted` added to the `TableData` contract
+
+Greek government CSV exports routinely place a merged title banner above the real header, and
+sometimes a second sub-label row beneath it. `parse_csv` took row 0 as the header
+unconditionally, so on those files the publisher's column names became data row 1 and the real
+columns were renamed `col_2…col_11`. Observed live on resource
+`6c79a5b6-75fb-4682-816a-f45f9d43e57d`. No figure was fabricated — this is a labelling fault —
+but Phase 6 renders those labels to the user and feeds them to an LLM.
+
+Banner and footnote rows are now skipped. A **multi-row header is not merged**: merging invents
+labels the publisher never wrote, while refusing the file discards otherwise-good data.
+Uncertainty is the honest third option, so the continuation row is dropped and
+`TableData.header_trusted` is cleared. Like `complete`, the field has **no default** — the
+failure it guards is a construction site silently asserting that banner-derived names are the
+publisher's own. `PARSER_VERSION` moves to 2 so cached bodies re-parse.
+
+### 2026-07-29 — lower-bound totals over an incomplete table
+
+The Consequences above require Phase 6 to **refuse aggregates over `complete=False`**. This is
+relaxed: a total may be reported as an explicit lower bound ("τουλάχιστον…") **provided every
+fetched value of the measure is non-negative**. A partial sum bounds the true total only for a
+non-negative measure, and this data contains signed measures — `daydiff` in the vaccination
+resource reaches −87 across 5,550 of 35,076 rows. Superlatives and trend claims over an
+incomplete table remain refused outright. Recorded in ADR-0007.
