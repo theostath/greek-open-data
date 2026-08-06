@@ -102,6 +102,9 @@ uv run python -m pythia.ingest.client_probe   # -> docs/api_probe_raw.md
 | Harvest catalog | `make harvest` | `uv run python -m pythia.ingest.harvest` |
 | Build indexes | `make index` | `uv run python -m pythia.retrieval.index` |
 | Retrieval eval | `make eval` | `uv run python -m pythia.eval.run_eval` |
+| Fetch one resource | `make fetch RESOURCE_ID=<id>` | `uv run python -m pythia.access.data_client --resource-id <id>` |
+| Purge stale cache rows | `make cache-purge` | *(see the Makefile)* |
+| Answer a question | `make answer QUESTION="..."` | `uv run python -m pythia.synthesis.answer --question "..."` |
 | Dev server | `make dev` | *(Phase 7)* |
 
 > `make index` is **incremental** — it re-embeds only datasets whose text changed (and drops
@@ -145,7 +148,10 @@ All of these are **local build artifacts** (gitignored) — regenerate them with
       Greeklish→Greek normalization, local Qwen via Ollama, grounded-or-silent refusal.
 - [x] **Phase 5** — Access: resilient data client + cache + schema sniffing
       (`make fetch RESOURCE_ID=<id>`).
-- [ ] **Phase 6** — Synthesis: grounded answer + chart + freshness footer.
+- [x] **Phase 6** — Synthesis: grounded answer + Vega-Lite chart + freshness footer
+      (`make answer QUESTION="..."`). The LLM never emits a quantity and never sees the
+      table; a claim guard rejects any figure, magnitude-word, trend or superlative the
+      computed facts do not license (ADR-0007).
 - [ ] **Phase 7** — Interface: FastAPI + HTMX chat.
 - [ ] **Phase 8** — Eval & hardening.
 

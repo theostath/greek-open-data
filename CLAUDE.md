@@ -93,10 +93,25 @@ If you believe a swap is warranted, write a 3-line ADR in `docs/adr/` and procee
 │   ├── planning/                # Phase 4: NL -> structured query
 │   │   └── planner.py
 │   ├── access/                  # Phase 5: resilient data fetch
-│   │   ├── data_client.py       # token, retries, encoding, schema sniff
+│   │   ├── data_client.py       # orchestrator: guard -> cache -> transport -> sniff
+│   │   ├── guard.py             # scheme/host/IP policy (pure)
+│   │   ├── transport.py         # the only I/O; manual redirects, streaming caps
+│   │   ├── detect.py            # magic bytes vs declared format (pure)
+│   │   ├── sniff.py             # decode, dialect, banner rows, type inference (pure)
+│   │   ├── catalog.py           # resource + provenance lookups
+│   │   ├── models.py            # TableData honesty contract (ADR-0006)
 │   │   └── cache.py             # SQLite-backed response cache
-│   ├── synthesis/               # Phase 6: answer + chart spec
-│   │   └── answer.py
+│   ├── synthesis/               # Phase 6: grounded answer + chart + footer (ADR-0007)
+│   │   ├── answer.py            # orchestrator + refusal paths
+│   │   ├── coerce.py            # Greek decimal comma, periods, sentinels (pure)
+│   │   ├── bind.py              # column roles, series identity, params (pure)
+│   │   ├── compute.py           # THE ONLY SOURCE OF NUMBERS (pure)
+│   │   ├── chart.py             # deterministic Vega-Lite + validate_spec (pure)
+│   │   ├── narrate.py           # placeholder prompt + deterministic template
+│   │   ├── verify.py            # the claim guard (pure)
+│   │   ├── footer.py            # provenance, coverage, staleness (pure)
+│   │   ├── lexicon.py           # versioned Greek/English word lists
+│   │   └── models.py            # Answer/Fact/Binding contract
 │   ├── api/                     # Phase 7: FastAPI routes
 │   │   └── app.py
 │   └── eval/                    # Phase 3+: golden set + scoring
@@ -167,9 +182,11 @@ make setup        # uv sync + install hooks
 make probe        # run ingest/client_probe.py, write docs/api_findings.md
 make harvest      # pull catalog metadata into data/catalog.sqlite
 make index        # build/refresh the Chroma vector index
-make eval         # run the golden-question eval, print retrieval metrics
+make eval         # run the golden-question RETRIEVAL eval, print metrics
 make fetch RESOURCE_ID=<id>   # Phase 5: fetch one resource -> typed table
 make cache-purge  # drop access-cache rows past the TTL ceiling
+make answer QUESTION="..."    # Phase 6: grounded answer + chart + footer
+                              # (add RESOURCE_ID=<id> to bypass retrieval)
 make dev          # uvicorn with reload
 make check        # ruff + mypy + pytest
 ```
@@ -230,7 +247,18 @@ Status legend: [ ] not started · [~] in progress · [x] done
       **215 tests green**; verified live on portal CSV (cp1253 + `;` auto-detected),
       DataStore (24,390/24,390 rows) and an off-portal municipal endpoint.
       Run with `make fetch RESOURCE_ID=<id>`.
-- [ ] **Phase 6 — Synthesis:** grounded answer + Vega-Lite spec + freshness footer.
+- [x] **Phase 6 — Synthesis:** `answer_question()` (`synthesis/answer.py`) → typed `Answer`
+      (`answered | partial | refused`) with a Vega-Lite spec and a mandatory provenance footer.
+      **The LLM never emits a quantity and never sees the table** — it gets opaque placeholders
+      and the real strings are substituted back after `verify.check_claims`, which gates
+      numerals, number-words, trend/superlative language, wrong-label figures and markup
+      (ADR-0007). Only `MEASURE` columns aggregate; `LATEST` handles running totals.
+      Designed against **four live-probed resources**: an embedded `ΣΥΝΟΛΟ` row makes a naive
+      asylum total exactly 2× (147,374 vs 73,687); the ELSTAT index is ~715 interleaved series
+      truncated at **2016-06** of a 2010-01→2026-01 span; `OBS_VALUE='86,6'` is typed `text`;
+      `BASE_PER`/`Arithmese`/`areaid` are `number` but not measures. **335 tests green**,
+      including a guard-recall eval (14 adversarial narrations, all rejected) that runs inside
+      `make check`. Run with `make answer QUESTION="..."`.
 - [ ] **Phase 7 — Interface:** FastAPI + HTMX chat.
 - [ ] **Phase 8 — Eval & hardening:** retrieval metrics, honesty checks, observability.
 

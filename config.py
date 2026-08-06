@@ -82,6 +82,30 @@ class Settings(BaseSettings):
     access_allow_http: bool = False  # 109 resources are plain http:// — opt in explicitly
     access_allow_off_portal: bool = True
 
+    # Synthesis (Phase 6, ADR-0007). The table is untrusted third-party content (75% of
+    # resources are off-portal), so every bound below is load-bearing rather than tidiness.
+    synthesis_max_categories: int = 25  # bar cardinality and the top-N cut
+    # rows × columns before coercion. A Decimal costs ~104 B against a str's ~47, so coercing
+    # every column at access_max_rows would add ~52 MB on top of a live TableData.
+    synthesis_max_cells: int = 500_000
+    synthesis_max_columns: int = 200  # sniff imposes no column limit of its own
+    synthesis_max_series_rows: int = 100_000  # unpivot output: rows × measure columns
+    synthesis_sample_rows: int = 1_000  # classify on a sample; coerce bound columns in full
+    synthesis_chart_max_points: int = 1_000  # inlined data.values ceiling
+    synthesis_chart_max_bytes: int = 500_000  # serialised spec ceiling
+    synthesis_max_label_chars: int = 120  # a single cell is otherwise unbounded
+    synthesis_max_prompt_bytes: int = 16_000  # llm_max_tokens bounds output only
+    # Deliberately not llm_timeout_s (120): that is the planner's extraction budget. Narration
+    # is short-output and sits in a request path, and OllamaClient retries 5xx up to 3 times.
+    synthesis_llm_timeout_s: float = 30.0
+    synthesis_deadline_s: float = 45.0  # wall-clock for the whole answer, per Phase 5's
+    synthesis_max_narration_tokens: int = 400
+    synthesis_decimal_max_digits: int = 32  # a 25 MB digit string is a single-cell CPU DoS
+    synthesis_sentinel_ratio_max: float = 0.20  # above this a column is not aggregable
+    synthesis_code_max_len: int = 8  # `code` role: short tokens...
+    synthesis_code_repeat_ratio: float = 0.10  # ...that repeat heavily (distinct/total)
+    synthesis_stale_days: tuple[int, int, int] = (30, 365, 1095)  # fresh / recent / ageing
+
 
 def get_settings() -> Settings:
     """Return application settings loaded from the environment."""
