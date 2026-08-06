@@ -48,11 +48,22 @@ accent and the type; the background does no expressive work at all.
 
 ### Primary
 
-- **Honey Amber** (`oklch(0.700 0.130 60)` anchor; ramp *[to be resolved during implementation]*):
-  the single accent. Primary actions, the current selection, focus rings, and the active state of
-  the ask control. Chosen because the reflex for a Greek civic data tool is government blue, and
-  the reflex one tier deeper is terminal green — amber is neither, and it reads as a marked-up
-  page rather than a screen. Its hue must not drift more than ±10° from the anchor.
+- **Honey Amber** — **shipped value `oklch(0.660 0.130 60)`**; the original anchor was
+  `oklch(0.700 0.130 60)`. The single accent: primary actions, the current selection, focus
+  rings, and the active state of the ask control. Chosen because the reflex for a Greek civic
+  data tool is government blue, and the reflex one tier deeper is terminal green — amber is
+  neither, and it reads as a marked-up page rather than a screen. Its hue must not drift more
+  than ±10° from the anchor.
+
+  **Corrected 2026-08-06 (Phase 7).** The L=0.700 anchor measures **2.76:1** against white and
+  **fails WCAG 2.2 1.4.11**, which requires 3:1 for a focus indicator and for a control's own
+  visible boundary — and this accent draws every focus ring. Resolving the ramp at **L=0.660**
+  gives **3.10:1**, with hue and chroma untouched so the ±10° rule still holds. Do not restore
+  the lighter value for looks: `tests/test_api_contrast.py` measures it and will fail.
+
+  `--accent-hover: oklch(0.610 0.135 60)`. A form control's boundary uses a separate neutral,
+  `--control-border: oklch(0.66 0 0)` (3.11:1) — `--rule-strong` at 1.87:1 is fine for a
+  decorative divider and not for a control.
 
 ### Neutral
 
@@ -143,10 +154,30 @@ instrument, decoration reads as imprecision.
 
 ## 5. Components
 
-*Omitted: no components exist yet. The next `/impeccable document` pass, run against real
-templates, will capture them.* The one to design first is the provenance footer — it is the
-signature component of this product, it appears on every non-refusal answer, and the `Answer`
-dataclass makes it structurally impossible to omit.
+**Built in Phase 7, not yet captured properly.** Twelve templates now exist under
+`templates/`; this section still predates them. **Re-run `/impeccable document` against the
+real templates** to capture actual tokens and components and to generate the
+`.impeccable/design.json` sidecar. Until then, `static/app.css` is the source of truth.
+
+What shipped, in brief:
+
+- **Provenance footer** (`partials/_footer.html`) — the signature component, on every
+  non-refusal answer, structurally impossible to omit because `_answer.html` *raises* rather
+  than render without it. Freshness is the sentence `footer.py` writes plus a four-step
+  indicator in neutral ink, both derived from the same thresholds so they cannot disagree.
+- **Ask control** (`partials/_ask.html`) — persists above the result; re-asking replaces the
+  result rather than appending, so there is no scrollback.
+- **Three refusal branches** (`partials/_refusal.html`) — the structural rule is that a
+  refusal carrying provenance renders it, and one that does not shows what was searched
+  instead. That is why `matched_but_refused` resembles an answer more than the other two.
+- **Progress** (`partials/_progress.html`) — skeleton content, a distinct queued state, and
+  elapsed seconds, because one stage can legitimately last ~90 s.
+
+**Known open critique:** the UI is functional but not liked (2026-08-07). A
+`/impeccable critique` pass, and probably `bolder` or `typeset`, is queued work — see
+REPO_REPORT.md Part 3.3. The layout decision most worth revisiting first is
+**claim → provenance → chart**, which deliberately inverts the usual order so the quotable
+unit never scrolls away from its citation.
 
 ## 6. Do's and Don'ts
 

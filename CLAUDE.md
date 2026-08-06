@@ -329,10 +329,32 @@ Status legend: [ ] not started · [~] in progress · [x] done
       never scrolls away from its citation. Job ids carry a process epoch, so a lost result
       says "restarted" rather than the untrue "expired". Security: an **Origin check** (a
       loopback bind is not an access control) plus CSP/nosniff/no-referrer; assets vendored
-      and **hash-asserted in the suite**. **436 tests green.** Verified live: `/healthz` reads
-      21,806/21,806/21,806 with the LLM reachable, cross-origin POST → 403, a real Greek
-      question end-to-end in 40 s.
+      and **hash-asserted in the suite**; **WCAG contrast is measured, not asserted** — the
+      DESIGN.md accent anchor failed 1.4.11 at 2.76:1 and the ramp was resolved at L=0.660.
+      **450 tests green.** Verified live: `/healthz` reads 21,806/21,806/21,806 with the LLM
+      reachable, cross-origin POST → 403, a real Greek question end-to-end in 40 s. Start it
+      with **`uv run pythia-dev`** (`make` is not installed on the primary dev box).
 - [ ] **Phase 8 — Eval & hardening:** retrieval metrics, honesty checks, observability.
+
+**Queued between Phase 7 and Phase 8 — discuss before building** (detail in `REPO_REPORT.md`
+Part 3, which is untracked; issue links below survive it):
+
+- **Guided exploration by publisher, place and theme — issue #18.** A catalogue probe showed
+  `spatial_text` is unusable (7,600 of 9,101 populated rows just say `Ελλάδα`) and free-text
+  place matching is *misleading* (Ιωάννινα → 0 datasets, while Δήμος Ιωαννιτών publishes
+  plenty). **Geography lives in `org_title`:** Δήμος Χανίων has 2,228 datasets against 86
+  text mentions of Χανιά. Browse must be deterministic SQL over publisher/theme, filtered to
+  the 24.4% of datasets with a CSV/JSON resource, handing off via `resource_id` — which
+  **bypasses retrieval**, the measured ceiling (R@1 0.46). Do **not** route a "what data do you
+  have from X?" question through `answer_question`: it is a catalogue question, not a data
+  question, and `make_plan` would return `no_match`.
+- **LLM chart tooling / Highcharts — no issue yet, framing unsettled.** Two blockers before
+  any code: Highcharts is **proprietary for commercial use** (Vega/Vega-Lite are BSD), and more
+  importantly a tool that lets the model **emit chart specs** would put it back in contact with
+  the numbers and route around `validate_spec` — breaking ADR-0007's central property and
+  Principle #1 with it. The contract-preserving version has the LLM pick a chart *kind* from an
+  enum while `chart.py` still builds and validates the spec. Needs `/spec` + the judge panel +
+  an ADR, since it supersedes part of ADR-0007.
 
 **Always work the lowest unchecked phase unless told otherwise.** Update this section when a
 phase completes.
@@ -349,12 +371,29 @@ secrets leaked; and any new external-API assumption is reflected in `docs/api_fi
 
 ## 10. Open questions (resolve as you learn; don't block on them silently)
 
-- Is the relaunched catalog CKAN, and does it expose full per-resource schema?
-- Does the data API still use the legacy token + `query/{dataset}` pattern post-relaunch?
-- Which datasets are tabular-and-fresh enough to be the demo set for Phase 6?
+- ~~Is the relaunched catalog CKAN, and does it expose full per-resource schema?~~ **Resolved
+  (Phase 1):** CKAN **2.11.3**, Action API. Per-resource schema only for the ~1% of resources
+  in the DataStore; for the rest the declared format is all there is — and ADR-0006 records it
+  being observably wrong, which is why `access/detect.py` sniffs magic bytes.
+- ~~Does the data API still use the legacy token + `query/{dataset}` pattern post-relaunch?~~
+  **Resolved (Phase 1):** **gone (404).** Data is per-resource, via `datastore_search` or a
+  file download (302 → short-lived Azure Blob, the common case). Reads are anonymous;
+  `DATA_GOV_GR_TOKEN` is an unused defensive placeholder.
+- ~~Which datasets are tabular-and-fresh enough to be the demo set?~~ **Resolved (Phases 6–7):**
+  Phase 6 was designed against four live-probed resources; Phase 7's empty-state examples are
+  three questions **verified live to return ANSWERED** (`api/app.py::EXAMPLES`). **Re-verify
+  those after any retrieval change** — R@1 is what decides them, and one of the three
+  originally chosen turned out to refuse.
 - ~~Embedding strategy: title+description only, or include column/field names?~~ **Resolved
   (Phase 3):** embed `title + notes + tags` plus their English translations (the `embed_text`
   column); per-resource field names deferred — revisit if eval shows a gap.
+
+Still genuinely open:
+
+- **Does guided browsing beat better retrieval?** R@1 is 0.46 and issue #18 routes *around*
+  retrieval rather than improving it. Both are worth doing; which pays back sooner is untested.
+- **Can the LLM be given chart control without breaking ADR-0007?** See §8's queued note — the
+  enum-only version preserves the contract, the spec-emitting version does not.
 
 ---
 

@@ -173,8 +173,22 @@ shapes render distinctly — a `MATCHED`-plan refusal is never framed as a near 
 vendored and hash-pinned; an Origin check and CSP cover the browser-reachability that
 `access/guard.py:67` warned about.
 
+### Queued between Phase 7 and Phase 8 — decide before building
+- **Guided exploration by publisher, place and theme (issue #18).** Geography lives in
+  `org_title`, not `spatial_text` (which is 90% "Ελλάδα") and not in free text (Ιωάννινα → 0
+  mentions while its municipality publishes plenty). Deterministic SQL, filtered to the 24.4%
+  of datasets with CSV/JSON, handing off via `resource_id` — which bypasses retrieval, the
+  measured ceiling.
+- **LLM chart tooling / Highcharts (no issue yet).** Licensing (proprietary vs BSD Vega) and,
+  more importantly, whether letting the model emit chart specs breaks ADR-0007's "the LLM never
+  touches the numbers". Needs `/spec` + judge panel + an ADR.
+
 ### Phase 8 — Eval & hardening
 - Broaden eval, honesty checks, observability/structured logging review.
+- **Retrieval remains the highest-value lever** (R@1 0.46 — only 12/26 golden questions put the
+  right dataset first). Issue #13 (expand the golden set beyond n=26) is the prerequisite for
+  trusting any improvement: at n=26 one question is worth ~0.04 MRR overall and ~0.14 in the
+  greeklish slice.
 
 ## Operational / infra TODOs
 
