@@ -372,3 +372,7 @@ Gitflow would miss every day-to-day PR. Two repo-specific details:
   pre-download of e5-small (only `test_embed.py` and `test_search.py` need real weights).
   Hugging Face HEAD requests are intermittently flaky, and offline runs are verified to
   produce identical results.
+- **Actions are SHA-pinned and the token scope is `contents: read`.** A mutable major tag can
+  be repointed at new code by its owner; the job reads the tree and needs nothing more. Note
+  `uv run mypy` follows `[tool.mypy] files`, so the CI type gate covers `src/` and
+  `config.py` but **not** `tests/`.
