@@ -78,6 +78,7 @@ If you believe a swap is warranted, write a 3-line ADR in `docs/adr/` and procee
 ├── .env.example                 # DATA_GOV_GR_TOKEN=, ANTHROPIC_API_KEY=, etc.
 ├── config.py                    # typed settings (pydantic-settings), reads env — ROOT, not src/
 ├── .github/workflows/ci.yml     # ruff + mypy + pytest on py3.11 + py3.12 (§11)
+├── .claude/skills/eval-gate/    # the §9/§11 retrieval eval ritual, incl. a preflight script
 ├── data/
 │   ├── catalog.sqlite           # harvested metadata + datasets_fts (gitignored)
 │   └── chroma/                  # vector index (gitignored)
