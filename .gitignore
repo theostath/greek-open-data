@@ -16,3 +16,7 @@ data/
 # Local scratch
 prompts.txt
 .claude/settings.local.json
+
+# Security-review stamp: a sha that is only meaningful on the machine and checkout
+# that produced it. Committing one would let a stale review satisfy the gate elsewhere.
+.claude/.last-security-review
