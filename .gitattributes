@@ -1,0 +1,9 @@
+# Normalise line endings in the repository to LF. Without this every commit from the
+# Windows dev box emits "LF will be replaced by CRLF" warnings.
+* text=auto eol=lf
+
+# Binary fixtures must never be line-ending converted.
+*.png binary
+*.jpg binary
+*.zip binary
+*.sqlite binary
