@@ -9,7 +9,7 @@ This file is persistent context for Claude Code. Keep it accurate and concise; p
 
 ## 1. Mission & scope
 
-**Mission:** Make Greece's ~9,500 open datasets usable by anyone who can type a question.
+**Mission:** Make Greece's ~21,900 open datasets usable by anyone who can type a question.
 The portal's real weakness is *discoverability* — not data volume. This product attacks
 discoverability with retrieval + grounded synthesis.
 
@@ -58,7 +58,9 @@ government system, cross-dataset statistical modeling/forecasting, mobile apps.
   (ADR-0003). Superseded the original Claude Sonnet choice per `plan.md` direction change.
 - **HTTP:** `httpx` (async), with `tenacity` for retries.
 - **Charts:** emit Vega-Lite JSON specs; render client-side.
-- **Testing:** `pytest`. **Lint/format:** `ruff`. **Types:** `mypy` on `src/`.
+- **Testing:** `pytest`. **Lint/format:** `ruff`. **Types:** `mypy --strict` over `src/` **and
+  root `config.py`** — all three are configured in `pyproject.toml`, so run them bare
+  (`uv run mypy`, no path argument; passing one skips `config.py`, where every setting lives).
 
 If you believe a swap is warranted, write a 3-line ADR in `docs/adr/` and proceed.
 
@@ -66,18 +68,27 @@ If you believe a swap is warranted, write a 3-line ADR in `docs/adr/` and procee
 
 ## 4. Repository layout
 
-```
+```text
 .
 ├── CLAUDE.md
-├── pyproject.toml
+├── README.md
+├── plan.md                      # phase-by-phase build plan (the roadmap's long form)
+├── pyproject.toml               # deps + ruff/mypy/pytest config (no setup.cfg, no tox)
 ├── Makefile
 ├── .env.example                 # DATA_GOV_GR_TOKEN=, ANTHROPIC_API_KEY=, etc.
-├── config.py                    # typed settings (pydantic-settings), reads env
+├── config.py                    # typed settings (pydantic-settings), reads env — ROOT, not src/
+├── .github/workflows/ci.yml     # ruff + mypy + pytest on py3.11 + py3.12 (§11)
 ├── data/
-│   ├── catalog.sqlite           # harvested metadata (gitignored)
+│   ├── catalog.sqlite           # harvested metadata + datasets_fts (gitignored)
 │   └── chroma/                  # vector index (gitignored)
+├── specs/                       # per-phase implementation specs (Phases 4, 5, 6)
+├── tests/                       # pytest suite; mirrors the module layout below
+│   ├── synthesis_fixtures.py    # shared Phase 6 tables, built from live-probed resources
+│   └── fixtures/                # captured API payloads
 ├── src/pythia/
 │   ├── net.py                   # route TLS via the OS trust store (proxy CA)
+│   ├── llm.py                   # LLM Protocol + Ollama /api/chat client + FakeLLM (ADR-0004)
+│   ├── logging_setup.py         # structured logging + secret redaction
 │   ├── ingest/                  # Phase 1–2: API discovery + catalog harvest
 │   │   ├── client_probe.py      # one-off endpoint discovery, writes findings to docs/
 │   │   ├── harvest.py           # pulls all dataset metadata -> SQLite
@@ -89,9 +100,14 @@ If you believe a swap is warranted, write a 3-line ADR in `docs/adr/` and procee
 │   │   ├── embed.py             # e5 embeddings + incremental Chroma index
 │   │   ├── lexical.py           # FTS5 BM25 + RRF fusion
 │   │   ├── index.py             # `make index`: build dense + lexical indexes
+│   │   ├── rerank.py            # cross-encoder reorder, DEFAULT-OFF (ADR-0002)
 │   │   └── search.py            # find_dataset(question) -> ranked candidates
 │   ├── planning/                # Phase 4: NL -> structured query
-│   │   └── planner.py
+│   │   ├── planner.py           # make_plan(): normalize -> retrieve -> select -> one LLM call
+│   │   ├── normalize.py         # Greeklish->Greek + language detection (ADR-0005)
+│   │   ├── select.py            # dataset + CSV/JSON resource choice (deterministic)
+│   │   ├── models.py            # QueryPlan contract
+│   │   └── prompts/             # extract_plan.md, disambiguate.md
 │   ├── access/                  # Phase 5: resilient data fetch
 │   │   ├── data_client.py       # orchestrator: guard -> cache -> transport -> sniff
 │   │   ├── guard.py             # scheme/host/IP policy (pure)
@@ -100,7 +116,8 @@ If you believe a swap is warranted, write a 3-line ADR in `docs/adr/` and procee
 │   │   ├── sniff.py             # decode, dialect, banner rows, type inference (pure)
 │   │   ├── catalog.py           # resource + provenance lookups
 │   │   ├── models.py            # TableData honesty contract (ADR-0006)
-│   │   └── cache.py             # SQLite-backed response cache
+│   │   ├── cache.py             # SQLite-backed response cache
+│   │   └── cache_schema.sql     # committed cache schema
 │   ├── synthesis/               # Phase 6: grounded answer + chart + footer (ADR-0007)
 │   │   ├── answer.py            # orchestrator + refusal paths
 │   │   ├── coerce.py            # Greek decimal comma, periods, sentinels (pure)
@@ -111,18 +128,23 @@ If you believe a swap is warranted, write a 3-line ADR in `docs/adr/` and procee
 │   │   ├── verify.py            # the claim guard (pure)
 │   │   ├── footer.py            # provenance, coverage, staleness (pure)
 │   │   ├── lexicon.py           # versioned Greek/English word lists
-│   │   └── models.py            # Answer/Fact/Binding contract
-│   ├── api/                     # Phase 7: FastAPI routes
-│   │   └── app.py
+│   │   ├── models.py            # Answer/Fact/Binding contract
+│   │   └── prompts/             # narrate.md — the ONLY synthesis prompt
+│   ├── api/                     # Phase 7: FastAPI routes — NOT YET CREATED
 │   └── eval/                    # Phase 3+: golden set + scoring
 │       ├── golden_questions.yaml
 │       └── run_eval.py
-├── templates/                   # Jinja2 + HTMX
-├── static/
+├── templates/                   # Jinja2 + HTMX — NOT YET CREATED (Phase 7)
+├── static/                      # NOT YET CREATED (Phase 7)
 └── docs/
     ├── api_findings.md          # OUTPUT of Phase 1 — the source of truth for endpoints
-    └── adr/                     # short architecture decision records
+    ├── api_probe_raw.md         # raw probe evidence behind api_findings.md
+    ├── benchmarks/              # measured runs (e.g. embedding-index-build.md)
+    └── adr/                     # 0001–0007; short architecture decision records
 ```
+
+Everything marked **NOT YET CREATED** is Phase 7 scaffolding described here for intent only —
+do not assume those files exist.
 
 ---
 
@@ -175,21 +197,42 @@ be **verified in Phase 1**, not assumed. Record findings in `docs/api_findings.m
 
 ## 7. Commands
 
-(Create these in Phase 0; keep this list in sync with the Makefile.)
+Keep this list in sync with the Makefile.
 
-```
-make setup        # uv sync + install hooks
-make probe        # run ingest/client_probe.py, write docs/api_findings.md
+```text
+make setup        # uv sync (pre-commit hooks: not wired yet, Phase 8)
+make probe        # run ingest/client_probe.py, write docs/api_probe_raw.md
 make harvest      # pull catalog metadata into data/catalog.sqlite
-make index        # build/refresh the Chroma vector index
+make index        # build/refresh the Chroma + FTS5 indexes (incremental)
 make eval         # run the golden-question RETRIEVAL eval, print metrics
 make fetch RESOURCE_ID=<id>   # Phase 5: fetch one resource -> typed table
 make cache-purge  # drop access-cache rows past the TTL ceiling
 make answer QUESTION="..."    # Phase 6: grounded answer + chart + footer
                               # (add RESOURCE_ID=<id> to bypass retrieval)
-make dev          # uvicorn with reload
-make check        # ruff + mypy + pytest
+make dev          # uvicorn with reload — stub until Phase 7
+make check        # ruff + mypy + pytest — the gate in §9
 ```
+
+Every target is a one-line `uv run` wrapper; run those directly when `make` is unavailable
+(see the Makefile). **Run pytest from the repo root** — `pyproject` sets `pythonpath = ["."]`,
+which is what lets tests import both `pythia.*` and `tests.synthesis_fixtures`.
+
+```bash
+uv run pytest tests/test_synthesis_verify.py -q             # one file
+uv run pytest tests/test_synthesis_verify.py::test_name -q  # one test
+uv run pytest -q -k "synthesis and not honesty"             # by keyword
+```
+
+**Always run the suite offline** — `HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 uv run pytest -q`,
+which is what `make check` and CI both do. `test_embed.py` and `test_search.py` load real
+e5-small weights, and without those vars the loader fires a live HEAD request to
+huggingface.co per module; those requests fail intermittently and error 7–10 tests at random.
+The weights are cached, so offline fetches nothing and the run is both deterministic and
+faster (~27 s vs ~40 s). A bare `uv run pytest` is the single most likely reason you see
+red on unmodified code.
+
+The suite is 335 tests. Prefer a targeted file while iterating, and run `make check` before
+committing.
 
 ---
 
@@ -203,8 +246,7 @@ Status legend: [ ] not started · [~] in progress · [x] done
       datasets, anonymous reads, DCAT-AP metadata; `package_search` caps at `rows=15000`). Legacy
       `/api/v1/query/{id}` data API is **GONE (404)**. Data is per-resource: **DataStore**
       (`datastore_search`, ~1% of resources, `limit≤32000`) or **file download** (302 → short-lived
-      Azure Blob; the common case). `datastore_search_sql` disabled. **Note:** mission §1 says
-      ~9,500 datasets; live count is ~21,930.
+      Azure Blob; the common case). `datastore_search_sql` disabled.
 - [x] **Phase 2 — Ingestion:** `harvest.py` walks `package_search` → `normalize.py` → SQLite
       (`db.py`, schema in `ingest/schema.sql`). Harvested **21,806 datasets / 106,678 resources**
       (124 non-dataset/inactive skipped); `last_updated`=`metadata_modified` on every row. Note:
