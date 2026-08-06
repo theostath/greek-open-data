@@ -106,6 +106,24 @@ class Settings(BaseSettings):
     synthesis_code_repeat_ratio: float = 0.10  # ...that repeat heavily (distinct/total)
     synthesis_stale_days: tuple[int, int, int] = (30, 365, 1095)  # fresh / recent / ageing
 
+    # Interface (Phase 7, ADR-0008). One process serves routes and templates; the pipeline
+    # behind it is synchronous, CPU-bound and slow, so every bound here is backpressure.
+    # Loopback keeps the port off the LAN but is NOT an access control on its own: any page
+    # in any other tab can POST cross-origin to it, which is why app.py checks Origin.
+    api_host: str = "127.0.0.1"
+    api_port: int = 8000
+    # Bounds a field that reaches the LLM prompt. Counted in str code points and checked
+    # after .strip(), so Greek costs the same as English.
+    api_max_question_chars: int = 500
+    # CPU inference plus a 9B LLM on one laptop; raising this oversubscribes both.
+    api_max_concurrent_jobs: int = 2
+    # Backpressure, deliberately SEPARATE from the storage ceiling below: a
+    # ThreadPoolExecutor queue is unbounded by default and TTL eviction only removes
+    # *finished* jobs, so without this a burst parks work behind 2 workers for tens of minutes.
+    api_max_pending_jobs: int = 4
+    api_job_ttl_s: int = 900  # how long a finished answer stays retrievable by URL
+    api_max_jobs: int = 64  # hard ceiling on the in-memory store
+
 
 def get_settings() -> Settings:
     """Return application settings loaded from the environment."""
