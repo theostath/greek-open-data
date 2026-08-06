@@ -1,0 +1,11 @@
+{#
+  The terminal fragment. It carries NO hx-trigger, which is what stops the polling.
+  Dispatches on the one distinction that matters: did we license a claim, or not?
+#}
+<div class="result" data-job="{{ job_id }}">
+  {% if view.refusal %}
+    {% include "partials/_refusal.html" %}
+  {% else %}
+    {% include "partials/_answer.html" %}
+  {% endif %}
+</div>

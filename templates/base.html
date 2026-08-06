@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Pythia — Greek open data{% endblock %}</title>
+  {# No external requests of any kind: local-first means the page works with the cable out. #}
+  <link rel="stylesheet" href="/static/app.css">
+  <link rel="icon" href="data:,">
+  <script src="/static/vendor/htmx.min.js" defer></script>
+  <script src="/static/vendor/vega.min.js" defer></script>
+  <script src="/static/vendor/vega-lite.min.js" defer></script>
+  <script src="/static/vendor/vega-embed.min.js" defer></script>
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="masthead">
+    <a class="wordmark" href="/">Pythia</a>
+    <p class="standfirst">
+      Ask a question about Greek open data. Every answer names its source — or says plainly
+      that no dataset covers it.
+    </p>
+  </header>
+
+  <main id="main">
+    {% block main %}{% endblock %}
+  </main>
+
+  <footer class="colophon">
+    <p>
+      Reads the <a href="https://data.gov.gr">data.gov.gr</a> catalogue. Figures come from the
+      published datasets themselves; nothing here is modelled, forecast or interpolated.
+    </p>
+  </footer>
+</body>
+</html>

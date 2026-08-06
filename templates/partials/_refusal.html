@@ -1,0 +1,89 @@
+{#
+  Three shapes, not two. The structural rule: a refusal that HAS provenance renders it; one
+  that does not shows what was searched instead.
+
+  That is why matched_but_refused looks more like an answer than like the other two refusals —
+  retrieval and planning both succeeded there, and only the requested slice is missing.
+#}
+<article class="refusal refusal-{{ view.refusal.shape.value }}" lang="{{ view.language }}"
+         dir="auto">
+
+  {% if view.refusal.shape.value == "matched_but_refused" %}
+    <h2>This is the right dataset. It doesn't cover what you asked.</h2>
+  {% elif view.refusal.shape.value == "unsupported" %}
+    <h2>The dataset exists, but not in a format this can read.</h2>
+  {% else %}
+    <h2>No dataset in the catalogue covers this.</h2>
+  {% endif %}
+
+  <p class="claim">{{ view.refusal.reason }}</p>
+
+  {# ---- Shape 3: retrieval succeeded. Never near-miss framing. ---- #}
+  {% if view.refusal.shape.value == "matched_but_refused" %}
+    {% if view.refusal.matched_title %}
+    <p class="matched">
+      Matched: <strong dir="auto">{{ view.refusal.matched_title }}</strong>
+      {% if view.refusal.matched_last_updated %}
+        <span class="quiet">(updated {{ view.refusal.matched_last_updated }})</span>
+      {% endif %}
+    </p>
+    {% endif %}
+    <p class="next">
+      The search worked — this is genuinely the closest dataset. Try a period the data
+      actually covers, or a narrower question about the same dataset.
+    </p>
+    {% if view.footer %}
+      {# The Phase 6 amendment: this refusal kept the provenance it had already resolved. #}
+      {% include "partials/_footer.html" %}
+    {% endif %}
+
+  {# ---- Shape 2: the dataset was found, but publishes nothing tabular. ---- #}
+  {% elif view.refusal.shape.value == "unsupported" %}
+    {% if view.refusal.offered_formats %}
+    <p class="formats">
+      The catalogue lists this dataset as:
+      {% for fmt in view.refusal.offered_formats %}<span class="fmt">{{ fmt }}</span>{% endfor %}
+    </p>
+    {% endif %}
+    <p class="next">
+      Pythia reads CSV and JSON only. Other formats — PDFs and spreadsheets especially — are
+      not yet supported, so the figure exists but cannot be quoted from here. The dataset page
+      itself may still have what you need.
+    </p>
+
+  {# ---- Shape 1: nothing matched. Show what was searched, and the nearest things. ---- #}
+  {% else %}
+    {% if view.refusal.normalized_question
+          and view.refusal.normalized_question != view.question %}
+    <p class="searched">
+      Searched for: <span class="term" dir="auto">{{ view.refusal.normalized_question }}</span>
+      <span class="quiet">— your wording was transliterated into Greek before searching.</span>
+    </p>
+    {% endif %}
+
+    {% if view.refusal.near_misses %}
+    <section class="near-misses">
+      <h3>Closest in the catalogue, though none of them answer this</h3>
+      <ul>
+        {% for near in view.refusal.near_misses %}
+        <li><a href="{{ near.url }}" dir="auto">{{ near.title }}</a></li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% else %}
+    <p class="next">Nothing in the catalogue came close enough to be worth showing you.</p>
+    {% endif %}
+
+    <p class="next">
+      Rephrasing helps more than you would expect: name the measure and the year plainly, and
+      prefer the words a public body would use over the words a reader would.
+    </p>
+  {% endif %}
+
+  {# Both messages must cost one click, not a retype. #}
+  <p class="reask">
+    <button type="button" class="example" data-question="{{ view.question }}">
+      Edit and ask again
+    </button>
+  </p>
+</article>

@@ -148,6 +148,10 @@ class JobStore:
             return Miss.UNKNOWN
         return Miss.EXPIRED if prefix == self.epoch else Miss.RESTARTED
 
+    def now(self) -> float:
+        """The store's clock, so callers compute elapsed time on the same time base."""
+        return self._clock()
+
     def close(self) -> None:
         """Stop accepting work and let running jobs finish."""
         self._executor.shutdown(wait=False)

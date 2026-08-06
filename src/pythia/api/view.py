@@ -20,7 +20,7 @@ from config import Settings
 
 from pythia.api.service import NearMiss, RecoveryContext
 from pythia.planning.models import PlanStatus
-from pythia.synthesis.footer import format_number
+from pythia.synthesis.footer import format_number, staleness_step
 from pythia.synthesis.models import Answer, AnswerStatus, Footer
 
 
@@ -74,6 +74,9 @@ class AnswerView:
     chart_caveat: str | None = None
     chart_title: str = ""
     footer: Footer | None = None
+    #: 1–4 (fresh → possibly abandoned), 0 when unknown. Derived from ``footer.py``'s own
+    #: thresholds so the indicator can never disagree with the sentence beside it.
+    staleness_step: int = 0
     caveats: list[str] = field(default_factory=list)
     refusal: RefusalView | None = None
     #: Kept apart because ``Answer.degraded`` ORs them and the wording differs: one says the
@@ -130,6 +133,8 @@ def to_view(answer: Answer, recovery: RecoveryContext, *, settings: Settings) ->
         chart_caveat=answer.chart.caveat if answer.chart else None,
         chart_title=answer.chart.title if answer.chart else "",
         footer=answer.footer,
+        staleness_step=staleness_step(answer.footer.last_updated, cfg=settings)
+        if answer.footer else 0,
         caveats=list(answer.caveats),
         refusal=refusal,
         # ``Answer.degraded`` is ``narration_degraded or plan.degraded``, so subtracting the

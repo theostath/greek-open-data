@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block main %}
+<h1 class="visually-hidden">Ask a question about Greek open data</h1>
+
+{% include "partials/_ask.html" %}
+
+<div id="result" aria-live="polite">
+  {# The teaching empty state. It is replaced wholesale by the first result. #}
+  <section class="empty">
+    <h2>What this can answer</h2>
+    <p class="lede">
+      Pythia searches ~21,800 datasets published by Greek public bodies, picks the one that
+      fits your question, reads it, and shows you the figure with its source attached. It
+      answers in the language you ask in.
+    </p>
+
+    <h3>Try one of these</h3>
+    <ul class="examples">
+      {% for example in examples %}
+      <li>
+        <button type="button" class="example" data-question="{{ example }}">{{ example }}</button>
+      </li>
+      {% endfor %}
+    </ul>
+
+    <h3>What it will not do</h3>
+    <ul class="plain">
+      <li>Invent a figure. If no dataset covers your question, it says so and shows you what
+        it looked at.</li>
+      <li>Join two datasets together. Greek regional codes changed with the
+        Kapodistrias–Kallikratis reforms, so joining on region names would produce confident
+        nonsense.</li>
+      <li>Hide staleness. Some datasets have not been updated in years; the answer says which
+        and when.</li>
+    </ul>
+
+    <p class="health" id="health" hidden>
+      <strong>Heads up:</strong> <span id="health-detail"></span>
+    </p>
+  </section>
+</div>
+{% endblock %}

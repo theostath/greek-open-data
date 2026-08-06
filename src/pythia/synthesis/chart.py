@@ -28,7 +28,30 @@ _ALLOWED_KEYS = frozenset({
     "point", "encoding", "x", "y", "color", "tooltip", "field", "axis", "scale", "sort",
     "zero", "domain", "legend", "width", "height", "config", "view", "stroke", "labelAngle",
     "labelLimit", "titleLimit", "format", "timeUnit", "interpolate", "strokeWidth",
+    # `range` carries the categorical colour list. Vega-Lite accepts only scalars or arrays of
+    # scalars here — never an expression — and the leaf-scalar check below still applies, so
+    # allowing it does not widen the executable surface. Note that allowlisting `scale` alone
+    # was NOT sufficient: the guard filters every key at every depth.
+    "range",
 })
+
+#: Categorical series colours: Okabe-Ito, reordered so its orange (#e69f00) and yellow
+#: (#f0e442) come last.
+#:
+#: Two rules meet here. Vega-Lite's default (tableau10) is not colourblind-safe, and the amber
+#: UI accent means "actionable" — so a series painted amber-adjacent both misreads for
+#: colourblind readers and quietly steals the accent's only job. Okabe-Ito fixes the first;
+#: pushing its two warm entries past the point realistic series counts reach fixes the second.
+_SERIES_COLORS: tuple[str, ...] = (
+    "#0072b2",  # blue
+    "#009e73",  # bluish green
+    "#cc79a7",  # reddish purple
+    "#56b4e9",  # sky blue
+    "#d55e00",  # vermillion
+    "#000000",  # black
+    "#e69f00",  # orange — nearest the accent, so last but one
+    "#f0e442",  # yellow — lowest contrast on white, so last
+)
 
 #: Keys that make a Vega-Lite document executable or network-reachable.
 _FORBIDDEN_KEYS = frozenset({
@@ -137,7 +160,8 @@ def build_spec(
     }
     if facts.series_field:
         encoding["color"] = {"field": "series", "type": "nominal",
-                             "legend": {"title": "", "labelLimit": 160}}
+                             "legend": {"title": "", "labelLimit": 160},
+                             "scale": {"range": list(_SERIES_COLORS)}}
 
     spec: dict[str, Any] = {
         "$schema": _SCHEMA,

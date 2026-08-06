@@ -82,18 +82,43 @@ def row_coverage(table: TableData, language: str) -> str:
     )
 
 
+def staleness_step(
+    last_updated: str | None, *, cfg: Settings, today: date | None = None
+) -> int:
+    """Bucket freshness as 1–4 (fresh → abandoned), or 0 when the date is unknown.
+
+    Shares this module's thresholds with ``staleness`` on purpose: an indicator that could
+    disagree with the sentence beside it would be exactly the dishonesty the footer exists to
+    prevent. The step is rendered in neutral ink — hue never carries this meaning.
+    """
+    days = _age_days(last_updated, today)
+    if days is None:
+        return 0
+    fresh, recent, ageing = cfg.synthesis_stale_days
+    for step, bound in enumerate((fresh, recent, ageing), start=1):
+        if days < bound:
+            return step
+    return 4
+
+
+def _age_days(last_updated: str | None, today: date | None = None) -> int | None:
+    """Days since the dataset was last updated, or ``None`` if that cannot be established."""
+    if not last_updated:
+        return None
+    try:
+        moment = datetime.fromisoformat(last_updated.replace("Z", "+00:00")).date()
+    except ValueError:
+        return None
+    return ((today or datetime.now(UTC).date()) - moment).days
+
+
 def staleness(
     last_updated: str | None, language: str, *, cfg: Settings, today: date | None = None
 ) -> str:
     """Bucket how old the dataset is. Buckets do not overlap."""
-    if not last_updated:
+    days = _age_days(last_updated, today)
+    if days is None:
         return "άγνωστη ενημέρωση" if language == "el" else "update date unknown"
-    try:
-        moment = datetime.fromisoformat(last_updated.replace("Z", "+00:00")).date()
-    except ValueError:
-        return "άγνωστη ενημέρωση" if language == "el" else "update date unknown"
-    now = today or datetime.now(UTC).date()
-    days = (now - moment).days
     fresh, recent, ageing = cfg.synthesis_stale_days
     if days < fresh:
         return ("ενημερώθηκε τον τελευταίο μήνα" if language == "el"

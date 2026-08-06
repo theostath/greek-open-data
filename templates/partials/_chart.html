@@ -1,0 +1,30 @@
+{#
+  |tojson is Jinja2's htmlsafe_json_dumps: it escapes <, > and & and returns Markup, so a
+  publisher-controlled series label cannot break out of the script element, and the value is
+  not double-escaped either. Never |safe here.
+
+  The spec is delivered as application/json data, not as executable code, which is what lets
+  script-src stay 'self' with no 'unsafe-inline'.
+#}
+<figure class="chart">
+  <script type="application/json" class="vega-spec">{{ view.chart|tojson }}</script>
+  <div class="vega-target" role="img"
+       aria-label="Chart: {{ view.chart_title }}. The figures it plots are listed in the table above."></div>
+
+  <figcaption>
+    <span class="chart-title">{{ view.chart_title }}</span>
+    {% if view.chart_caveat %}
+    <span class="chart-caveat">{{ view.chart_caveat }}</span>
+    {% endif %}
+    {% if view.footer %}
+    <span class="chart-source">
+      Source: {{ view.footer.publisher }} · {{ view.footer.dataset_title }}
+    </span>
+    {% endif %}
+  </figcaption>
+
+  <noscript>
+    <p class="chart-fallback">The chart needs JavaScript. Every figure it plots is in the
+      table above.</p>
+  </noscript>
+</figure>

@@ -46,6 +46,11 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency injection *is* a call in an argument default; B008 is a real warning
+# everywhere else, so the exemption is listed per-callable rather than disabling the rule.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Form", "fastapi.Query", "fastapi.Path"]
+
 [tool.mypy]
 python_version = "3.11"
 strict = true

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}Result unavailable — Pythia{% endblock %}
+
+{% block main %}
+{# Its own FULL PAGE, not the fragment: /a/{id} is reached by direct navigation, so returning
+   a bare partial would yield a document with no head and no styles. #}
+<h1 class="visually-hidden">Result unavailable</h1>
+
+{% include "partials/_ask.html" %}
+
+<div id="result">
+  {% include "partials/_expired.html" %}
+</div>
+{% endblock %}
