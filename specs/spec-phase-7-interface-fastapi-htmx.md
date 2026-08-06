@@ -475,12 +475,20 @@ not change ranking either, but the gate applies to anything that does.
 persistence beyond the in-memory TTL, multi-user concerns, and any deployment story. Each is a
 Phase 8 decision or later; none blocks a usable single-user tool.
 
-**Open design question for DESIGN.md**, flagged rather than resolved: the impeccable brand seed
-is amber/honey `oklch(0.700 0.130 60)`, but amber is also the conventional warning hue — and
-this product has a fresh / recent / ageing / stale ramp (`synthesis_stale_days = (30, 365,
-1095)`) that wants exactly that colour. Either the accent moves off amber or staleness is
-encoded without relying on hue. Resolve before building templates: it decides the footer's whole
-visual treatment.
+**The amber/staleness collision is resolved** (DESIGN.md, 2026-08-06). The accent stays amber
+`oklch(0.700 0.130 60)` and staleness is encoded **without hue**: the sentence `footer.py`
+already writes, plus a four-step indicator in neutral ink. Colorblind-safe, and it keeps the
+accent meaning "actionable". Two consequences for this phase:
+
+- The footer template renders freshness as text, never as a coloured chip alone.
+- `synthesis/chart.py` sets `encoding.color` with **no `scheme`**, so specs currently fall back
+  to Vega-Lite's default tableau10 — which would collide with the accent. A deliberate
+  colorblind-safe categorical scheme must be set; `scale` is already on the `validate_spec`
+  allowlist, so this needs no change to the guard. Treat it as part of step 8's chart work and
+  keep it inside `chart.py`, so the spec stays validated at the single place that validates it.
+
+**DESIGN.md is a seed**, written before any template exists. Re-run `/impeccable document`
+against real templates once step 8 lands, to capture actual tokens and components.
 
 **PRODUCT.md is the design brief:** product register, journalists as the primary user, refusals
 as routes rather than dead ends, and two anti-references — a ChatGPT clone and a BI dashboard —
