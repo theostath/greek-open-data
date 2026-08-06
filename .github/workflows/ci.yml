@@ -7,6 +7,11 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  # GitHub occasionally drops a pull_request event and creates no run at all — it did exactly
+  # that for PR #19, with the workflow active and the repo public. Without a manual trigger
+  # the only remedy is an empty commit, which puts noise in the history to work around an
+  # upstream hiccup. Note this takes effect once the workflow is on the default branch.
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
