@@ -224,12 +224,24 @@ def test_complete_flag_cannot_lie() -> None:
     """TableData rejects an inconsistent completeness claim at construction."""
     with pytest.raises(ValueError):
         TableData(resource_id="r", dataset_id="d", columns=[], rows=[], row_count=0,
-                  complete=False, incomplete_reason=None, access_path="download",
-                  source_url="u", fetched_at="t")
+                  complete=False, incomplete_reason=None, header_trusted=True,
+                  access_path="download", source_url="u", fetched_at="t")
     with pytest.raises(ValueError):
         TableData(resource_id="r", dataset_id="d", columns=[], rows=[], row_count=0,
                   complete=True, incomplete_reason=IncompleteReason.ROW_CAP,
-                  access_path="download", source_url="u", fetched_at="t")
+                  header_trusted=True, access_path="download", source_url="u", fetched_at="t")
+
+
+def test_header_trust_has_no_default() -> None:
+    """A construction site must state whether the header is trustworthy.
+
+    Same guard as ``complete``: a defaulted ``header_trusted=True`` would let every forgotten
+    call site silently assert that banner-derived column names are the publisher's own.
+    """
+    with pytest.raises(TypeError):
+        TableData(resource_id="r", dataset_id="d", columns=[], rows=[],  # type: ignore[call-arg]
+                  row_count=0, complete=True, access_path="download",
+                  source_url="u", fetched_at="t")
 
 
 def test_access_log_never_contains_a_url(caplog: pytest.LogCaptureFixture) -> None:

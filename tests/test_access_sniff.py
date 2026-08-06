@@ -179,3 +179,98 @@ def test_sanity_check_rejects_a_collapsed_table() -> None:
     rows: list[dict[str, str | None]] = [{"a": "1;2;3"}, {"a": "4;5;6"}, {"a": "7;8;9"}]
     with pytest.raises(MalformedPayloadError):
         sniff.sanity_check([Column(name="a", type="text")], rows, confident=False)
+
+
+# --- Banner / multi-row header handling (the defect Phase 6 blocked on) -------------------
+# The literal below is the shape observed live on resource 6c79a5b6-75fb-4682-816a-f45f9d43e57d:
+# a merged Excel title, then the real header, then a sub-label row filling only the columns the
+# header left blank.
+BANNERED = (
+    "ΒΑΣΕΙΣ -- ΕΠΑΝΑΛΗΠΤΙΚΕΣ ΕΠΑΛ -- ΠΑΝΕΛΛΑΔΙΚΕΣ 2019;;;;;;;;;;\n"
+    "ΚΩΔΙΚΟΣ ΣΧΟΛΗΣ;ΙΔΡΥΜΑ;ΟΝΟΜΑ ΣΧΟΛΗΣ;ΕΙΔΟΣ ΘΕΣΗΣ;ΑΡΧΙΚΕΣ ΘΕΣΕΙΣ;"
+    "ΘΕΣΕΙΣ (Κατόπιν Μεταφοράς);ΕΠΙΤ/ΤΕΣ;ΒΑΘΜΟΣ ΠΡΩΤΟΥ;;ΒΑΘΜΟΣ ΤΕΛΕΥΤΑΙΟΥ;\n"
+    ";;;;;;;ΜΟΡΙΑ;ΚΡΙΤΗΡΙΑ ΙΣΟΒΑΘΜΙΑΣ;ΜΟΡΙΑ;ΚΡΙΤΗΡΙΑ ΙΣΟΒΑΘΜΙΑΣ\n"
+    "0227;ΑΠΘ;ΑΓΡΟΝΟΜΩΝ ΚΑΙ ΤΟΠΟΓΡΑΦΩΝ ΜΗΧΑΝΙΚΩΝ;ΕΠΑΝΑΛΗΠΤΙΚΕΣ ΕΠΑΛ;1;1;0;;;;\n"
+    "0233;ΑΠΘ;ΑΡΧΙΤΕΚΤΟΝΩΝ ΜΗΧΑΝΙΚΩΝ;ΕΠΑΝΑΛΗΠΤΙΚΕΣ ΕΠΑΛ;1;1;0;;;;\n"
+)
+
+
+def test_banner_row_is_not_taken_as_the_header() -> None:
+    """The real Greek column names survive; they do not become col_2..col_11."""
+    parsed = sniff.parse_csv(BANNERED, ";", 100)
+    assert parsed.header[0] == "ΚΩΔΙΚΟΣ ΣΧΟΛΗΣ"
+    assert parsed.header[1] == "ΙΔΡΥΜΑ"
+    assert "ΒΑΘΜΟΣ ΠΡΩΤΟΥ" in parsed.header
+    assert parsed.rows[0]["ΚΩΔΙΚΟΣ ΣΧΟΛΗΣ"] == "0227"
+
+
+def test_multi_row_header_is_flagged_not_merged() -> None:
+    """A continuation row is dropped and the header marked untrustworthy, never merged."""
+    parsed = sniff.parse_csv(BANNERED, ";", 100)
+    assert parsed.header_trusted is False
+    assert parsed.dropped_rows == 2  # the banner and the sub-label row
+    assert len(parsed.rows) == 2  # neither discarded row became data
+    assert all("ΜΟΡΙΑ" != value for value in parsed.rows[0].values())
+
+
+def test_plain_header_stays_trusted() -> None:
+    """An ordinary file is untouched by the banner logic."""
+    parsed = sniff.parse_csv(GREEK, ",", 100)
+    assert parsed.header == ["Νομός", "Ατυχήματα"]
+    assert parsed.header_trusted is True
+    assert parsed.dropped_rows == 0
+    assert len(parsed.rows) == 2
+
+
+def test_single_column_file_is_not_mistaken_for_a_banner() -> None:
+    """A one-column CSV has a one-cell header; that alone must not look like a title."""
+    parsed = sniff.parse_csv("Ονομασία\nΑττική\nΚρήτη\n", ",", 100)
+    assert parsed.header == ["Ονομασία"]
+    assert parsed.header_trusted is True
+    assert len(parsed.rows) == 2
+
+
+def test_two_column_header_is_not_mistaken_for_a_banner() -> None:
+    """A full two-column header has no trailing empties, so it is not a banner."""
+    parsed = sniff.parse_csv("Νομός,Πληθυσμός\nΑττικής,3800000\n", ",", 100)
+    assert parsed.header == ["Νομός", "Πληθυσμός"]
+    assert parsed.header_trusted is True
+    assert len(parsed.rows) == 1
+
+
+def test_sparse_first_data_row_is_not_eaten_as_a_continuation() -> None:
+    """A data row that happens to have blanks still fills columns the header filled."""
+    text = "Νομός,Ατυχήματα,Έτος\nΑττικής,,2024\nΚρήτης,12,2024\n"
+    parsed = sniff.parse_csv(text, ",", 100)
+    assert parsed.header_trusted is True
+    assert len(parsed.rows) == 2
+    assert parsed.rows[0]["Νομός"] == "Αττικής"
+
+
+def test_trailing_footnote_row_is_dropped() -> None:
+    """A footer note is annotation, not an observation, and must not become a category."""
+    text = (
+        "Νομός,Ατυχήματα,Έτος\n"
+        "Αττικής,1234,2024\n"
+        "Κρήτης,567,2024\n"
+        "* Προσωρινά στοιχεία,,\n"
+    )
+    parsed = sniff.parse_csv(text, ",", 100)
+    assert len(parsed.rows) == 2
+    assert parsed.dropped_rows == 1
+    assert all(row["Νομός"] != "* Προσωρινά στοιχεία" for row in parsed.rows)
+
+
+def test_leading_blank_rows_are_dropped() -> None:
+    """';;' parses to all-empty cells and survives the empty-line filter."""
+    parsed = sniff.parse_csv(",,\nΝομός,Ατυχήματα,Έτος\nΑττικής,1,2024\n", ",", 100)
+    assert parsed.header[0] == "Νομός"
+    assert len(parsed.rows) == 1
+
+
+def test_banner_rows_do_not_consume_the_row_budget() -> None:
+    """max_rows bounds data rows; discarded header noise must not count against it."""
+    text = "ΤΙΤΛΟΣ,,\n" + "α,β,γ\n" + "".join(f"r{i},{i},2024\n" for i in range(5))
+    parsed = sniff.parse_csv(text, ",", 3)
+    assert len(parsed.rows) == 3
+    assert parsed.truncated is True

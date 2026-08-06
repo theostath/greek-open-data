@@ -25,7 +25,9 @@ from pythia.ingest.models import ResourceRow
 _SCHEMA_PATH = Path(__file__).parent / "cache_schema.sql"
 
 # Bump when sniff/parse behaviour changes in a way that invalidates cached-body parses.
-PARSER_VERSION = 1
+# v2: parse_csv skips banner/continuation/footnote rows, so a cached body parses to a
+# different header and row set than it did under v1.
+PARSER_VERSION = 2
 
 
 @dataclass(frozen=True)
