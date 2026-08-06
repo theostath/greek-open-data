@@ -4,8 +4,10 @@
 > ([data.gov.gr](https://data.gov.gr)). Ask a question in **Greek or English** → get the
 > right dataset, a **grounded, cited answer**, and a chart — with a freshness/provenance footer.
 
-**Status:** early development. Phase 0 (setup) and Phase 1 (API discovery) complete; Phase 2
-(ingestion) is next. See the [roadmap](#roadmap).
+**Status:** early development. The pipeline runs end to end on the command line — Phases 0–6
+(setup → API discovery → ingestion → retrieval → planning → access → synthesis) are complete,
+so `make answer QUESTION="..."` returns a grounded answer, a chart spec and a provenance
+footer. Phase 7 (the web interface) is next. See the [roadmap](#roadmap).
 
 ---
 
@@ -38,7 +40,7 @@ dataset, publisher, and `last_updated`.
 | Vector store | Chroma (persistent, local) |
 | Embeddings | `intfloat/multilingual-e5-large` (local, zero cost); Voyage AI fallback |
 | Retrieval | Dense + BM25 (SQLite FTS5) hybrid, RRF fusion, optional reranker — see [ADRs](docs/adr/) |
-| LLM | Claude Sonnet (model id in config, not hardcoded) |
+| LLM | Local **Qwen via Ollama** — no API key, no egress ([ADR-0004](docs/adr/0004-llm-provider-ollama-qwen.md)); model id in config, not hardcoded |
 | HTTP | httpx (async) + tenacity retries |
 | Charts | Vega-Lite JSON specs, rendered client-side |
 | Quality | pytest · ruff · mypy |
