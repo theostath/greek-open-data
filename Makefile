@@ -33,4 +33,8 @@ dev:  ## Phase 7
 check:  ## ruff + mypy + pytest
 	uv run ruff check .
 	uv run mypy
-	uv run pytest -q
+	# Offline, exactly as CI runs it. test_embed.py and test_search.py load real
+	# e5-small weights; without these the loader makes a live HEAD request to
+	# huggingface.co per module, which fails intermittently and errors 7-10 tests
+	# at random. The weights are already cached, so nothing is actually fetched.
+	HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 uv run pytest -q
