@@ -27,8 +27,8 @@ cache-purge:  ## Phase 5: drop cache rows past the TTL ceiling
 answer:  ## Phase 6: answer one question (make answer QUESTION="..." [RESOURCE_ID=<id>])
 	uv run python -m pythia.synthesis.answer --question "$(QUESTION)" $(if $(RESOURCE_ID),--resource-id $(RESOURCE_ID),)
 
-dev:  ## Phase 7: serve the app on 127.0.0.1:8000 (one process, no build step)
-	uv run uvicorn pythia.api.app:app --reload --host 127.0.0.1 --port 8000
+dev:  ## Phase 7: preflight, serve on 127.0.0.1:8000, open a browser
+	uv run pythia-dev
 
 check:  ## ruff + mypy + pytest
 	uv run ruff check .

@@ -216,12 +216,20 @@ make fetch RESOURCE_ID=<id>   # Phase 5: fetch one resource -> typed table
 make cache-purge  # drop access-cache rows past the TTL ceiling
 make answer QUESTION="..."    # Phase 6: grounded answer + chart + footer
                               # (add RESOURCE_ID=<id> to bypass retrieval)
-make dev          # uvicorn with reload — stub until Phase 7
+make dev          # Phase 7: preflight, serve on 127.0.0.1:8000, open a browser
 make check        # ruff + mypy + pytest — the gate in §9
 ```
 
 Every target is a one-line `uv run` wrapper; run those directly when `make` is unavailable
-(see the Makefile). **Run pytest from the repo root** — `pyproject` sets `pythonpath = ["."]`,
+(see the Makefile). **`make` is not installed on the current dev box**, so in practice:
+
+```bash
+uv run pythia-dev          # == make dev. Preflights the catalogue, index and Ollama first,
+                           # names the fix for whatever is missing, then serves and opens a
+                           # browser once the port is actually accepting (the ~2.2 GB model
+                           # load means that is 30–60 s after launch, not immediately).
+                           # --no-browser / --no-reload / --skip-preflight when scripting.
+``` **Run pytest from the repo root** — `pyproject` sets `pythonpath = ["."]`,
 which is what lets tests import both `pythia.*` and `tests.synthesis_fixtures`.
 
 ```bash

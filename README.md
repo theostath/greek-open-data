@@ -107,8 +107,15 @@ uv run python -m pythia.ingest.client_probe   # -> docs/api_probe_raw.md
 | Fetch one resource | `make fetch RESOURCE_ID=<id>` | `uv run python -m pythia.access.data_client --resource-id <id>` |
 | Purge stale cache rows | `make cache-purge` | *(see the Makefile)* |
 | Answer a question | `make answer QUESTION="..."` | `uv run python -m pythia.synthesis.answer --question "..."` |
-| Dev server | `make dev` | *(Phase 7)* |
+| Dev server | `make dev` | `uv run pythia-dev` |
 
+> **`make` is not installed on every dev box** (it is not on the primary one), so the
+> right-hand column is the real command. `uv run pythia-dev` preflights the catalogue, the
+> search index and Ollama, names the fix for anything missing, then serves on
+> `127.0.0.1:8000` and opens a browser once the port actually accepts — the ~2.2 GB embedding
+> model is loaded at startup, so that is 30–60 s in. Flags: `--no-browser`, `--no-reload`,
+> `--skip-preflight`, `--host`, `--port`.
+>
 > `make index` is **incremental** — it re-embeds only datasets whose text changed (and drops
 > removed ones), so refreshing the catalog doesn't re-embed everything. When *every* dataset
 > changed it rebuilds the collection from scratch, so the HNSW graph stays tombstone-free.
