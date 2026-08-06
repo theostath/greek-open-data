@@ -131,12 +131,18 @@ If you believe a swap is warranted, write a 3-line ADR in `docs/adr/` and procee
 │   │   ├── lexicon.py           # versioned Greek/English word lists
 │   │   ├── models.py            # Answer/Fact/Binding contract
 │   │   └── prompts/             # narrate.md — the ONLY synthesis prompt
-│   ├── api/                     # Phase 7: FastAPI routes — NOT YET CREATED
+│   ├── api/                     # Phase 7: the interface (ADR-0008)
+│   │   ├── app.py               # FastAPI app, lifespan, routes, Origin check, CSP
+│   │   ├── service.py           # Pipeline + RecoveryContext — the ONE orchestration path
+│   │   ├── jobs.py              # bounded, TTL-evicting, thread-safe JobStore
+│   │   └── view.py              # AnswerView: the publish whitelist (plan never ships)
 │   └── eval/                    # Phase 3+: golden set + scoring
 │       ├── golden_questions.yaml
 │       └── run_eval.py
-├── templates/                   # Jinja2 + HTMX — NOT YET CREATED (Phase 7)
-├── static/                      # NOT YET CREATED (Phase 7)
+├── templates/                   # Jinja2 + HTMX (Phase 7)
+│   └── partials/                # _ask, _progress, _result, _answer, _refusal, _footer,
+│                                # _chart, _error, _expired
+├── static/                      # app.css, app.js, vendor/ (htmx + vega, hash-pinned)
 └── docs/
     ├── api_findings.md          # OUTPUT of Phase 1 — the source of truth for endpoints
     ├── api_probe_raw.md         # raw probe evidence behind api_findings.md
@@ -302,7 +308,22 @@ Status legend: [ ] not started · [~] in progress · [x] done
       `BASE_PER`/`Arithmese`/`areaid` are `number` but not measures. **335 tests green**,
       including a guard-recall eval (14 adversarial narrations, all rejected) that runs inside
       `make check`. Run with `make answer QUESTION="..."`.
-- [ ] **Phase 7 — Interface:** FastAPI + HTMX chat.
+- [x] **Phase 7 — Interface:** one FastAPI process serving Jinja2 + HTMX (**ADR-0008**, which
+      reverses `plan.md`'s June Vercel direction change — local-first won). `make dev` →
+      `127.0.0.1:8000`. **`Pipeline` (`api/service.py`) is the single orchestration path**,
+      shared by the CLI and the web app; ADR-0004 is the argument for that. Questions run on a
+      bounded pool (`api_max_concurrent_jobs=2`) and the browser polls; the terminal fragment
+      stops polling by omitting `hx-trigger`. `api/view.py` is a **publish whitelist** — a
+      field added to `QueryPlan` later is invisible by default, and `Answer.plan` never
+      reaches the browser. **Three refusal shapes, not two:** a `MATCHED` plan that still
+      refuses is never framed as a near miss, guarded in *both* `build_recovery_context` and
+      `to_view`. Provenance renders inside the answer, before the chart, so the quotable unit
+      never scrolls away from its citation. Job ids carry a process epoch, so a lost result
+      says "restarted" rather than the untrue "expired". Security: an **Origin check** (a
+      loopback bind is not an access control) plus CSP/nosniff/no-referrer; assets vendored
+      and **hash-asserted in the suite**. **436 tests green.** Verified live: `/healthz` reads
+      21,806/21,806/21,806 with the LLM reachable, cross-origin POST → 403, a real Greek
+      question end-to-end in 40 s.
 - [ ] **Phase 8 — Eval & hardening:** retrieval metrics, honesty checks, observability.
 
 **Always work the lowest unchecked phase unless told otherwise.** Update this section when a

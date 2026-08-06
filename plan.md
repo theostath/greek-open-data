@@ -15,7 +15,7 @@ tracks where we actually are and what's next._
 | 4 | Planning (NL → structured query) | ✅ done, merged (eval gate run, 0 wrong matches) |
 | 5 | Access (resilient data client + cache) | ✅ done (ADR-0006, verified live) |
 | 6 | Synthesis (grounded answer + chart + footer) | ✅ done |
-| 7 | Interface (FastAPI + HTMX) | ⬜ not started |
+| 7 | Interface (FastAPI + Jinja2 + HTMX, one process) | ✅ done (ADR-0008, verified live) |
 | 8 | Eval & hardening | ⬜ not started |
 
 ## Direction changes (decided 2026-06-02 — supersede CLAUDE.md §3)
@@ -34,15 +34,18 @@ OpenAI-compatible API at `http://localhost:11434/v1` (native `/api/chat` also av
 - [ ] Update `CLAUDE.md §3` (LLM line) + write an ADR.
 - [ ] Build-time check: ensure `ollama serve` is running and confirm the exact model tag.
 
-### Frontend: Vercel app (replaces server-rendered Jinja2 + HTMX)
-- [ ] Build the frontend as a Vercel-hosted app (e.g. Next.js/React) instead of Jinja2+HTMX.
-- [ ] Rescope Phase 7: FastAPI becomes a **JSON API** the frontend calls (decoupled
-      frontend/backend), not a server-rendered template app.
-- [ ] Update `CLAUDE.md §3` (Frontend line) + write an ADR.
-- [ ] ⚠️ **Resolve the hosting tension first:** Vercel is cloud-hosted, but the backend +
-      Qwen (`localhost:11434`) + SQLite/Chroma indexes are **local-first**. Either the Vercel
-      UI calls a locally-run backend (personal/dev use; backend not publicly deployed) or the
-      backend must be hosted (which breaks the local-first MVP). Decide before building.
+### ~~Frontend: Vercel app (replaces server-rendered Jinja2 + HTMX)~~
+~~- [ ] Build the frontend as a Vercel-hosted app (e.g. Next.js/React) instead of Jinja2+HTMX.~~
+~~- [ ] Rescope Phase 7: FastAPI becomes a **JSON API** the frontend calls.~~
+~~- [ ] ⚠️ **Resolve the hosting tension first.**~~
+
+**Reversed 2026-08-06 (ADR-0008):** the hosting tension is resolved *against* Vercel. The
+blocker this entry left open was never resolvable while staying local-first — Qwen on
+`localhost:11434`, a ~2.2 GB embedding model and two local SQLite databases cannot be reached
+from a cloud-hosted page without either exposing the laptop or re-hosting the whole stack,
+which contradicts Core Principle #3. Phase 7 ships as originally specified in `CLAUDE.md §3`:
+**one FastAPI process serving Jinja2 + HTMX**, no build step, no second runtime. A JSON API
+for third-party clients is deferred, not cancelled.
 
 ## What's done (committed)
 
@@ -161,9 +164,14 @@ retained as `datasets_tombstoned` and can be deleted once the new one is trusted
   publisher, `last_updated`). Grounded-or-silent: never fabricate; "no dataset covers this"
   is a valid answer. **Synthesis LLM = local Qwen via Ollama** (see Direction changes).
 
-### Phase 7 — Interface — **Vercel frontend + FastAPI JSON API** (see Direction changes)
-- FastAPI exposes the query/answer endpoints as JSON; the chat UI is a Vercel-hosted app
-  (Next.js/React) calling it. Resolve the local-first vs cloud-hosting tension first.
+### Phase 7 — Interface — **one FastAPI process serving Jinja2 + HTMX** (ADR-0008)
+~~Vercel frontend + FastAPI JSON API.~~ **Reversed 2026-08-06:** local-first won; see the
+Direction-changes note above. `make dev` serves the app on `127.0.0.1:8000`. `Pipeline`
+(`api/service.py`) is the one orchestration path shared by the CLI and the web app;
+`api/view.py` is a publish whitelist so `Answer.plan` never reaches the browser. Three refusal
+shapes render distinctly — a `MATCHED`-plan refusal is never framed as a near miss. Assets are
+vendored and hash-pinned; an Origin check and CSP cover the browser-reachability that
+`access/guard.py:67` warned about.
 
 ### Phase 8 — Eval & hardening
 - Broaden eval, honesty checks, observability/structured logging review.
