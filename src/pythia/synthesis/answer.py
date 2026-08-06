@@ -33,6 +33,7 @@ from pythia.synthesis.models import (
     Binding,
     ColumnRole,
     FactTable,
+    Footer,
     Operation,
     RefusalContext,
     output_language,
@@ -92,7 +93,10 @@ def answer_question(
             "δεν υπάρχουν γραμμές που να ταιριάζουν με το ερώτημα"
             if language == "el" else "no rows match the question"
         )
-        return _log(logger, started, _refuse(question, plan, language, reason))
+        # Keep the footer built just above: Answer's invariant forbids facts and charts on a
+        # refusal, not provenance, and "the right dataset, but no rows match" is far more
+        # useful with the dataset, publisher and freshness attached (Principle #2).
+        return _log(logger, started, _refuse(question, plan, language, reason, footer=foot))
 
     caveats = _caveats(table, binding, facts, overlap, language)
     limitation = caveats[0] if caveats else None
@@ -292,11 +296,17 @@ def _access_reason(error: AccessError, language: str) -> str:
     return "Τα δεδομένα δεν ανακτήθηκαν." if el else "The data could not be retrieved."
 
 
-def _refuse(question: str, plan: QueryPlan, language: str, reason: str) -> Answer:
-    """Build a refusal. It carries no facts and no chart, by construction."""
+def _refuse(
+    question: str, plan: QueryPlan, language: str, reason: str, *, footer: Footer | None = None
+) -> Answer:
+    """Build a refusal. It carries no facts and no chart, by construction.
+
+    A footer is optional and passed only where one was actually built — most refusal paths
+    never fetched anything, so they have no provenance to state.
+    """
     return Answer(
         question=question, language=language, status=AnswerStatus.REFUSED, text=reason,
-        plan=plan, refusal_reason=reason, degraded=plan.degraded,
+        plan=plan, refusal_reason=reason, degraded=plan.degraded, footer=footer,
     )
 
 

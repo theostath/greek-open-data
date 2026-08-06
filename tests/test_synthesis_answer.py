@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 import pytest
-from tests.synthesis_fixtures import asylum_table, index_table, plan, vaccination_table
+from tests.synthesis_fixtures import (
+    asylum_table,
+    index_table,
+    plan,
+    table,
+    vaccination_table,
+)
 
 from pythia.access.models import (
     MalformedPayloadError,
@@ -41,6 +47,28 @@ def test_missing_catalog_metadata_degrades_wording_not_the_answer() -> None:
     answer = answer_question("ερώτηση", plan(), data)
     assert answer.footer is not None
     assert "κατάλογο" in answer.footer.publisher
+
+
+def test_a_no_rows_refusal_keeps_the_provenance_it_already_built() -> None:
+    """The footer is built before this branch, and ``Answer`` permits one on a refusal.
+
+    "The right dataset, but no rows match" is substantially more useful with the dataset,
+    publisher and freshness attached, and Principle #2 argues for surfacing provenance
+    wherever it exists.
+    """
+    answer = answer_question("ερώτηση", plan(), table([("Νομός", "text")], []))
+
+    assert answer.status is AnswerStatus.REFUSED
+    assert answer.facts is None and answer.chart is None
+    assert answer.footer is not None, "the footer was built at answer.py:86 and thrown away"
+    assert answer.footer.publisher == "Ελληνική Κυβέρνηση"
+
+
+def test_the_other_refusals_still_carry_no_footer() -> None:
+    """Only the no-rows path has provenance to keep; a planning refusal never fetched."""
+    answer = answer_question("ερώτηση", plan(status=PlanStatus.NO_MATCH))
+
+    assert answer.footer is None
 
 
 def test_no_match_refusal_names_the_closest_candidates() -> None:
