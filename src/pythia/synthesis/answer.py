@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import logging
 from time import perf_counter
-from typing import Any
 
 from config import Settings, get_settings
 
@@ -324,14 +323,10 @@ def main(argv: list[str] | None = None) -> int:
     import argparse
     import json
 
-    import httpx
-
-    from pythia.access.cache import connect_cache, init_cache_db
-    from pythia.access.transport import HttpxTransport
-    from pythia.ingest.db import connect
-    from pythia.llm import load_llm
-    from pythia.logging_setup import configure_logging
-    from pythia.net import use_system_trust_store
+    # Phase 7 owns the orchestration both entrypoints share (ADR-0008). Imported inside the
+    # CLI function, not at module scope, so ``synthesis/`` keeps no import-time dependency on
+    # the layer above it.
+    from pythia.api.service import Pipeline
 
     parser = argparse.ArgumentParser(description="Answer one question from the catalogue.")
     parser.add_argument("--question", required=True)
@@ -341,24 +336,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-llm", action="store_true", help="force the template path")
     args = parser.parse_args(argv)
 
-    configure_logging()
-    use_system_trust_store()  # entrypoint only: it mutates ssl process-wide
-    cfg = get_settings()
-    conn = connect(cfg.catalog_db_path)
-    cache_conn = connect_cache(cfg.cache_db_path)
-    init_cache_db(cache_conn)
-    llm = None if args.no_llm else load_llm(cfg)
+    if args.no_llm and not args.resource_id:
+        raise SystemExit("planning needs an LLM; drop --no-llm or pass --resource-id")
 
-    with httpx.Client(
-        timeout=httpx.Timeout(cfg.access_read_timeout_s, connect=cfg.access_connect_timeout_s),
-        follow_redirects=False,
-    ) as client:
-        transport = HttpxTransport(
-            client, max_redirects=cfg.access_max_redirects, attempts=cfg.access_retry_attempts,
-            min_throughput_bps=cfg.access_min_throughput_bps,
-            host_min_interval_s=cfg.access_host_min_interval_s,
-        )
-        answer = _run(args, conn, cache_conn, transport, cfg, llm)
+    pipeline = Pipeline.create(get_settings(), with_llm=not args.no_llm)
+    try:
+        answer = pipeline.answer(args.question, resource_id=args.resource_id).answer
+    except ValueError as exc:  # a bad --resource-id is user error, not a crash
+        raise SystemExit(str(exc)) from exc
+    finally:
+        pipeline.close()
 
     print(f"\n[{answer.status.value}] {answer.text}\n")
     if answer.caveats:
@@ -371,75 +358,6 @@ def main(argv: list[str] | None = None) -> int:
         print("\nVega-Lite:")
         print(json.dumps(answer.chart.vega_lite, ensure_ascii=False, indent=2))
     return 0
-
-
-def _run(
-    args: Any, conn: Any, cache_conn: Any, transport: Any, cfg: Settings, llm: Any
-) -> Answer:
-    """Plan, fetch and synthesise for the CLI, resolving refusal context as the caller."""
-    from pythia.access import catalog
-    from pythia.access.data_client import fetch_for_plan, fetch_resource
-    from pythia.planning.planner import make_plan
-    from pythia.retrieval.embed import load_model
-
-    if args.resource_id:
-        # Bypass retrieval and planning entirely. Golden-set MRR is 0.544, so routing a probe
-        # through retrieval means a synthesis failure and a retrieval miss look identical —
-        # and this path also avoids loading the embedding model to answer a fixed resource.
-        resource = catalog.get_resource(conn, args.resource_id)
-        if resource is None:
-            raise SystemExit(f"no such resource: {args.resource_id}")
-        prov = catalog.get_provenance(conn, resource.dataset_id)
-        table = fetch_resource(resource, transport=transport, cache_conn=cache_conn,
-                               settings=cfg, provenance=prov)
-        return answer_question(
-            args.question, _direct_plan(args.question, resource, prov), table,
-            llm=llm, settings=cfg,
-        )
-
-    if llm is None:
-        raise SystemExit("planning needs an LLM; drop --no-llm or pass --resource-id")
-    plan = make_plan(
-        args.question, conn=conn, model=load_model(cfg.embedding_model),
-        chroma_path=cfg.chroma_path, llm=llm, settings=cfg,
-    )
-    ctx = None
-    if plan.dataset is not None:
-        prov = catalog.get_provenance(conn, plan.dataset.id)
-        ctx = RefusalContext(
-            dataset_title=prov.dataset_title, publisher=prov.publisher,
-            last_updated=prov.last_updated,
-            offered_formats=catalog.get_offered_formats(conn, plan.dataset.id),
-        )
-    if plan.status is not PlanStatus.MATCHED:
-        return answer_question(args.question, plan, refusal_ctx=ctx, llm=llm, settings=cfg)
-    try:
-        table = fetch_for_plan(plan, conn=conn, transport=transport, cache_conn=cache_conn,
-                               settings=cfg)
-    except AccessError as exc:
-        return answer_question(args.question, plan, error=exc, refusal_ctx=ctx, llm=llm,
-                               settings=cfg)
-    return answer_question(args.question, plan, table, refusal_ctx=ctx, llm=llm, settings=cfg)
-
-
-
-def _direct_plan(question: str, resource: Any, prov: Any) -> QueryPlan:
-    """Build a MATCHED plan for a resource named directly, with no retrieval involved."""
-    from pythia.planning.models import QueryParams
-    from pythia.planning.normalize import detect_language
-    from pythia.retrieval.search import Candidate
-
-    candidate = Candidate(
-        id=resource.dataset_id, name=resource.dataset_id, title=prov.dataset_title,
-        last_updated=prov.last_updated, rank=1, score=0.0,
-    )
-    return QueryPlan(
-        question=question, normalized_question=question, language=detect_language(question),
-        status=PlanStatus.MATCHED, dataset=candidate, resource_id=resource.id,
-        resource_format=resource.format, resource_url=resource.url, access_path=None,
-        params=QueryParams(), confidence=1.0, reason="resource named directly on the CLI",
-        degraded=False, candidates=[candidate],
-    )
 
 
 if __name__ == "__main__":  # pragma: no cover
