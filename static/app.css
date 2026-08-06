@@ -22,11 +22,20 @@
   --rule-strong: oklch(0.80 0 0);
 
   /* The accent is a verb: actions, the current selection, focus. Never a data value, never a
-     chart series, never a section marker. Target <=10% of any screen. */
-  --accent: oklch(0.700 0.130 60);
-  --accent-hover: oklch(0.645 0.135 60);
+     chart series, never a section marker. Target <=10% of any screen.
+
+     DESIGN.md anchors this at oklch(0.700 0.130 60) and leaves the ramp "to be resolved
+     during implementation". Resolved here at L=0.660: the anchor measures 2.76:1 against
+     white, and WCAG 2.2 1.4.11 needs 3:1 for a focus ring and for a control's own boundary.
+     L=0.660 measures 3.10:1. Hue and chroma are unchanged, so the ±10° hue rule holds. */
+  --accent: oklch(0.660 0.130 60);
+  --accent-hover: oklch(0.610 0.135 60);
   --accent-ink: oklch(0.20 0.03 60);
   --accent-wash: oklch(0.972 0.020 60);
+
+  /* A form control's visible boundary is non-text contrast (1.4.11), so it needs 3:1 —
+     --rule-strong at 1.87:1 is fine for a decorative divider and not for this. */
+  --control-border: oklch(0.66 0 0);
 
   --measure: 68ch;
   --step--1: 0.875rem;
@@ -122,7 +131,7 @@ a:hover { text-decoration-color: var(--accent); }
   color: var(--ink);
   background: var(--bg);
   padding: var(--space-3);
-  border: 1px solid var(--rule-strong);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius);
   transition: border-color var(--motion) var(--ease);
 }
@@ -164,7 +173,7 @@ button[disabled], button[aria-busy="true"] { opacity: 0.55; cursor: progress; }
 .example {
   background: var(--bg);
   color: var(--ink);
-  border-color: var(--rule-strong);
+  border-color: var(--control-border);
   text-align: start;
   padding: var(--space-2) var(--space-3);
   font-weight: 400;
