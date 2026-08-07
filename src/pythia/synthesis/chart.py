@@ -164,7 +164,10 @@ def build_spec(
 
     kind = _kind_for(facts, temporal_column)
 
-    series, categories = _series(points, kind, complete)
+    # The plotted dimension is a date exactly when the deterministic rule chose a line;
+    # computed independently of the final kind so a future demotion still knows.
+    dim_is_temporal = kind is ChartKind.LINE
+    series, categories = _series(points, kind, complete, dim_is_temporal)
     if not series:
         return None
 
@@ -209,9 +212,13 @@ def build_spec(
 
 
 def _series(
-    points: list[dict[str, Any]], kind: ChartKind, complete: bool
+    points: list[dict[str, Any]], kind: ChartKind, complete: bool, temporal: bool = False
 ) -> tuple[list[dict[str, Any]], list[Any]]:
-    """Group points into ECharts series, and return the category axis values with them."""
+    """Group points into ECharts series, and return the category axis values with them.
+
+    ``temporal`` says the plotted dimension is a date, which forbids value-ranking the axis
+    even when the kind is a bar — see ``_ordered_categories``.
+    """
     groups: dict[str, list[dict[str, Any]]] = {}
     for point in points:
         groups.setdefault(str(point.get("series", "")), []).append(point)
@@ -232,7 +239,7 @@ def _series(
     # Bars: order is decided here, not by a renderer flag, so the ranking is inspectable.
     # Ranking a truncated table is a superlative claim rendered visually — the categories that
     # were never fetched would read as absent rather than unknown — so sort only when complete.
-    ordered = _ordered_categories(points, complete)
+    ordered = _ordered_categories(points, complete, temporal)
     index = {category: position for position, category in enumerate(ordered)}
     built = []
     for name, rows in groups.items():
@@ -245,14 +252,28 @@ def _series(
     return built, ordered
 
 
-def _ordered_categories(points: list[dict[str, Any]], complete: bool) -> list[str]:
-    """Category order: by descending value when the table is complete, else as published."""
+def _ordered_categories(
+    points: list[dict[str, Any]], complete: bool, temporal: bool = False
+) -> list[str]:
+    """Category order: by descending value when the table is complete, else as published.
+
+    **A temporal axis is never reordered.** Ranking dates by magnitude turns chronology into a
+    superlative claim — January would render after April under an axis named for the date
+    column — and ``verify.py`` refuses exactly that superlative in prose. The chart must not
+    assert in pixels what the guard would strike from the sentence.
+
+    Not reachable today: ``compute._series`` is the only branch emitting date ``dim`` values
+    and it is gated on ``binding.temporal``, so ``_kind_for`` always sends it down the LINE
+    path. This disarms the trap before a demotion or a new ``Operation`` can spring it.
+    """
     seen: dict[str, float] = {}
     for point in points:
         category = str(point.get("dim"))
         value = point.get("value")
         numeric = float(value) if isinstance(value, int | float) else 0.0
         seen[category] = seen.get(category, 0.0) + numeric
+    if temporal:
+        return sorted(seen)
     if complete:
         return sorted(seen, key=lambda category: (-seen[category], category))
     return list(seen)

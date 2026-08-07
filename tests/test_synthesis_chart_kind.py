@@ -92,3 +92,42 @@ def test_an_aggregated_table_is_never_a_line_even_over_time() -> None:
 
     assert chart is not None
     assert chart.kind is ChartKind.BAR
+
+
+def test_a_temporal_dimension_drawn_as_bars_stays_chronological() -> None:
+    """Ranking a time axis by magnitude turns chronology into a superlative claim.
+
+    Not reachable in production today: `compute._series` is the only branch emitting date
+    `dim` values and it is gated on `binding.temporal`, so `_kind_for` always returns LINE
+    for it and the bar-ordering path is never entered with dates. This is hardening — the
+    trap is disarmed before anything (a demotion, a new Operation) can spring it.
+
+    `verify.py` refuses an unlicensed superlative in prose; a value-sorted date axis asserts
+    exactly that superlative in pixels, which is the disagreement this prevents.
+    """
+    from pythia.synthesis.chart import _ordered_categories
+
+    points = [{"dim": "2020-01", "value": 10.0}, {"dim": "2020-02", "value": 90.0},
+              {"dim": "2020-03", "value": 50.0}, {"dim": "2020-04", "value": 20.0}]
+
+    ordered = _ordered_categories(points, complete=True, temporal=True)
+
+    assert ordered == ["2020-01", "2020-02", "2020-03", "2020-04"]
+
+
+def test_a_categorical_dimension_is_still_ranked_by_value() -> None:
+    """The ranking is the point for categories: it answers "which is largest?" visually."""
+    from pythia.synthesis.chart import _ordered_categories
+
+    points = [{"dim": "Κρήτη", "value": 10.0}, {"dim": "Αττική", "value": 90.0}]
+
+    assert _ordered_categories(points, complete=True, temporal=False) == ["Αττική", "Κρήτη"]
+
+
+def test_an_incomplete_categorical_table_keeps_published_order() -> None:
+    """Unchanged behaviour: ranking rows we never fetched is a claim about absent data."""
+    from pythia.synthesis.chart import _ordered_categories
+
+    points = [{"dim": "Κρήτη", "value": 10.0}, {"dim": "Αττική", "value": 90.0}]
+
+    assert _ordered_categories(points, complete=False, temporal=False) == ["Κρήτη", "Αττική"]
