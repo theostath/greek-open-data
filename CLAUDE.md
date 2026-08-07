@@ -142,7 +142,9 @@ If you believe a swap is warranted, write a 3-line ADR in `docs/adr/` and procee
 │   │   ├── app.py               # FastAPI app, lifespan, routes, Origin check, CSP
 │   │   ├── service.py           # Pipeline + RecoveryContext — the ONE orchestration path
 │   │   ├── jobs.py              # bounded, TTL-evicting, thread-safe JobStore
-│   │   └── view.py              # AnswerView: the publish whitelist (plan never ships)
+│   │   ├── view.py              # AnswerView: the publish whitelist (plan never ships)
+│   │   ├── browse.py            # /explore: deterministic SQL, no LLM, no embeddings
+│   │   └── dev.py               # `uv run pythia-dev`: preflight + serve + open a browser
 │   └── eval/                    # Phase 3+: golden set + scoring
 │       ├── golden_questions.yaml
 │       └── run_eval.py
