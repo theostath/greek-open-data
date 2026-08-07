@@ -10,6 +10,12 @@ The subject of the review is deliberately not "whatever HEAD happens to be": for
 `gh pr merge` the local checkout may be an unrelated branch, so the gate resolves the
 PR's head commit and requires the stamp to match *that*. Anything it cannot resolve is
 treated as unreviewed, so the gate fails closed.
+
+Failing closed has two distinct causes and they get two distinct messages. Either the
+command **does** target main and the subject sha is unknown, or the gate could not tell
+**whether** it targets main at all — the latter happens when `gh pr view` fails, which is
+transient and common. Both deny; conflating them in the message sends the reader looking
+for a main-targeted merge that never existed.
 """
 
 from __future__ import annotations
@@ -22,10 +28,16 @@ from pathlib import Path
 
 MARKER_REL = Path(".claude") / ".last-security-review"
 
-#: Returned instead of a sha when a command targets main but the subject cannot be
-#: resolved (offline, no such PR, detached ref). Never equal to a real sha, so it
+#: Returned instead of a sha when a command **does** target main but the subject cannot
+#: be resolved (offline, no such PR, detached ref). Never equal to a real sha, so it
 #: always fails the freshness check.
 UNRESOLVED = ""
+
+#: Returned when the gate cannot even establish *whether* the command targets main —
+#: typically because `gh pr view` failed (gh unauthenticated, offline, rate-limited).
+#: Kept distinct from UNRESOLVED only so the message can be honest: both deny.
+#: Not a valid sha, and `review_covers` refuses it explicitly.
+UNDETERMINED = "?"
 
 DENY_REASON = (
     "BLOCKED by security-review gate: this command targets the `main` branch and no "
@@ -34,6 +46,16 @@ DENY_REASON = (
     "it with: git rev-parse HEAD > .claude/.last-security-review — then retry this "
     "command. If findings were reported, fix them (or have Teo explicitly accept them) "
     "before stamping."
+)
+
+UNDETERMINED_REASON = (
+    "BLOCKED by security-review gate: it could NOT determine whether this command "
+    "targets `main`, so it failed closed. This is usually transient — resolving a PR's "
+    "base shells out to `gh pr view`, which fails when gh is unauthenticated, offline "
+    "or rate-limited. It does NOT mean the command targets main.\n"
+    "Check with: gh pr view <number> --json baseRefName  (and `gh auth status`).\n"
+    "If that reports a base other than `main`, simply retry — the gate will resolve it "
+    "and allow the command. Only run /security-review if the base really is `main`."
 )
 
 
@@ -130,7 +152,10 @@ def gate_subject(cmd: str) -> str | None:
         view = ["gh", "pr", "view"] + ([sel] if sel else [])
         base = run(*view, "--json", "baseRefName", "-q", ".baseRefName")
         if base is None:
-            return UNRESOLVED  # cannot tell what it merges into: fail closed
+            # Cannot tell what it merges into: fail closed, but say *that* rather than
+            # asserting it targets main — the two are different claims, and reporting the
+            # wrong one sends the reader hunting for a main-targeted merge that never was.
+            return UNDETERMINED
         if base != "main":
             return None
         return run(*view, "--json", "headRefOid", "-q", ".headRefOid") or UNRESOLVED
@@ -156,7 +181,10 @@ def gate_subject(cmd: str) -> str | None:
 def review_covers(subject: str) -> bool:
     """True when the marker file holds exactly the sha of the code being merged."""
     root = run("git", "rev-parse", "--show-toplevel")
-    if not root or not subject:
+    # Both sentinels are refused explicitly. UNRESOLVED is falsy and would fail anyway;
+    # UNDETERMINED is truthy, so without this line a marker file containing "?" would
+    # satisfy the gate.
+    if not root or not subject or subject == UNDETERMINED:
         return False
     try:
         return (Path(root) / MARKER_REL).read_text(encoding="utf-8").strip() == subject
@@ -180,7 +208,10 @@ def main() -> None:
         "hookSpecificOutput": {
             "hookEventName": "PreToolUse",
             "permissionDecision": "deny",
-            "permissionDecisionReason": DENY_REASON,
+            # Same decision either way; only the explanation differs.
+            "permissionDecisionReason": (
+                UNDETERMINED_REASON if subject == UNDETERMINED else DENY_REASON
+            ),
         }
     }))
 
