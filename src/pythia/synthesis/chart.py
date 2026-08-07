@@ -142,11 +142,15 @@ def axis_type(kind: CoercedKind) -> str:
 
 def build_spec(
     facts: FactTable, *, title: str, caveat: str | None = None, complete: bool = True,
-    label: str = "", settings: Settings | None = None,
+    label: str = "", temporal_column: str | None = None, settings: Settings | None = None,
 ) -> ChartSpec | None:
     """Build a validated option, or ``None`` when no chart would inform.
 
     A single figure is a sentence, not a chart, and a listing has nothing to plot.
+
+    ``temporal_column`` is ``Binding.temporal`` — the column ``bind.py`` *proved* temporal.
+    Pass it whenever a binding exists; it is the authoritative signal and outranks the
+    heuristic below.
     """
     cfg = settings or get_settings()
     if facts.operation is Operation.LISTING or not facts.series:
@@ -158,15 +162,7 @@ def build_spec(
     if points is None:
         return None
 
-    temporal = facts.operation is Operation.NONE and (
-        facts.series_field is not None or _looks_temporal(facts)
-    )
-    grouped = bool(facts.series_field)
-    kind = (
-        ChartKind.LINE if temporal
-        else ChartKind.GROUPED_BAR if grouped
-        else ChartKind.BAR
-    )
+    kind = _kind_for(facts, temporal_column)
 
     series, categories = _series(points, kind, complete)
     if not series:
@@ -203,7 +199,7 @@ def build_spec(
         },
         "series": series,
     }
-    if grouped:
+    if facts.series_field:
         option["legend"] = {"top": "bottom", "orient": "horizontal"}
 
     validate_spec(option)
@@ -262,8 +258,37 @@ def _ordered_categories(points: list[dict[str, Any]], complete: bool) -> list[st
     return list(seen)
 
 
+def _kind_for(facts: FactTable, temporal_column: str | None) -> ChartKind:
+    """Decide the chart kind from the data's shape alone.
+
+    A line asserts continuity *between* points, so it is only honest over a real time axis.
+    Two rules follow, and both were previously wrong:
+
+    - **A proven temporal column decides it**, whatever the values look like. The old
+      heuristic read the first four characters of a dimension value, so a genuine
+      ``referencedate`` formatted ``01/2020`` was drawn as bars and a set of categories
+      merely *named* "2019"/"2020" was drawn as a trend.
+    - **A series field is not evidence of time.** A breakdown by region *and* year has more
+      than one series and no time axis; it is grouped bars.
+
+    An aggregated table is never a line: a ``SUM`` has collapsed the time axis, so drawing
+    the result as a trend would invent one.
+    """
+    if facts.operation is not Operation.NONE:
+        return ChartKind.GROUPED_BAR if facts.series_field else ChartKind.BAR
+    # The heuristic is the fallback for callers with no binding (the CLI probe path), never a
+    # second opinion when the authoritative signal is available.
+    temporal = bool(temporal_column) if temporal_column is not None else _looks_temporal(facts)
+    if temporal:
+        return ChartKind.LINE
+    return ChartKind.GROUPED_BAR if facts.series_field else ChartKind.BAR
+
+
 def _looks_temporal(facts: FactTable) -> bool:
-    """Report whether the series' x values are ISO dates."""
+    """Report whether the series' x values are ISO dates.
+
+    A weak guess kept only for callers that cannot supply ``Binding.temporal``.
+    """
     sample = str(facts.series[0].get("dim", ""))
     return len(sample) >= 7 and sample[:4].isdigit() and sample[4:5] == "-"
 
