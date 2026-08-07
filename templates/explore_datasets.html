@@ -39,8 +39,9 @@
         <button type="submit">Ask about this</button>
       </form>
       {% endif %}
-      <a class="dataset-source" href="https://data.gov.gr/dataset/{{ dataset.id }}">
-        View on data.gov.gr</a>
+      <a class="dataset-source" href="https://data.gov.gr/dataset/{{ dataset.id }}"
+         target="_blank" rel="noopener noreferrer">View on data.gov.gr<span
+         class="visually-hidden"> (opens in a new tab)</span></a>
     </p>
   </li>
   {% else %}

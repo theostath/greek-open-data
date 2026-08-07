@@ -12,7 +12,14 @@
   <dl>
     <div class="prov-row">
       <dt>Dataset</dt>
-      <dd><a href="{{ view.footer.dataset_url }}" dir="auto">{{ view.footer.dataset_title }}</a></dd>
+      {# New tab: a journalist is mid-answer and checking the source should not cost them the
+         answer they are citing. rel=noopener because target=_blank otherwise hands the opened
+         page a reference to this one. #}
+      <dd>
+        <a href="{{ view.footer.dataset_url }}" dir="auto"
+           target="_blank" rel="noopener noreferrer">{{ view.footer.dataset_title }}<span
+           class="visually-hidden"> (opens in a new tab)</span></a>
+      </dd>
     </div>
     <div class="prov-row">
       <dt>Publisher</dt>
@@ -52,7 +59,9 @@
       <dd>
         {{ view.footer.resource_format }} ·
         retrieved {{ view.footer.fetched_at }} ·
-        <a href="{{ view.footer.source_url }}" rel="nofollow noopener">file</a>
+        <a href="{{ view.footer.source_url }}"
+           target="_blank" rel="nofollow noopener noreferrer">file<span
+           class="visually-hidden"> (opens in a new tab)</span></a>
       </dd>
     </div>
   </dl>

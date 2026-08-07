@@ -207,3 +207,50 @@ def test_the_job_store_dependency_is_the_one_the_app_was_built_with() -> None:
     assert isinstance(store, JobStore)
     _ask(client)
     assert store.get(next(iter(store._jobs))) is not None
+
+
+def test_the_dataset_link_opens_in_a_new_tab() -> None:
+    """Checking a source mid-answer must not cost the reader the answer they are citing."""
+    client, _ = build(answered())
+
+    job_id = _ask(client).text.split('hx-get="/ask/')[1].split('"')[0]
+    body = client.get(f"/ask/{job_id}").text
+
+    assert 'target="_blank"' in body
+    assert "opens in a new tab" in body, "a new tab must be announced, not just opened"
+
+
+def test_every_new_tab_link_carries_noopener() -> None:
+    """target=_blank hands the opened page a reference to this one without it."""
+    client, _ = build(answered())
+
+    job_id = _ask(client).text.split('hx-get="/ask/')[1].split('"')[0]
+    body = client.get(f"/ask/{job_id}").text
+
+    chunks = body.split('target="_blank"')[1:]
+    # Without this the loop below has nothing to iterate and the test passes vacuously.
+    assert chunks, "no new-tab link rendered, so this test would assert nothing"
+    for chunk in chunks:
+        window = chunk[:200]
+        assert "noopener" in window, f"target=_blank without noopener near: {window[:80]!r}"
+
+
+def test_near_miss_links_open_in_a_new_tab() -> None:
+    """A refusal is a route, not a dead end — following one must not discard the explanation."""
+    client, _ = build(no_match())
+
+    job_id = _ask(client).text.split('hx-get="/ask/')[1].split('"')[0]
+    body = client.get(f"/ask/{job_id}").text
+
+    assert 'href="https://data.gov.gr/dataset/ds-fires"' in body
+    assert 'target="_blank"' in body
+
+
+def test_internal_navigation_does_not_open_new_tabs() -> None:
+    """Only outbound links get a new tab; hijacking in-app navigation would be hostile."""
+    body = build()[0].get("/").text
+
+    for chunk in body.split('target="_blank"')[1:]:
+        preceding = body[: body.index(chunk)]
+        href = preceding.rsplit("href=", 1)[-1][:60]
+        assert "data.gov.gr" in href or "http" in href, f"internal link opened a tab: {href!r}"
