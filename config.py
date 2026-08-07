@@ -124,6 +124,14 @@ class Settings(BaseSettings):
     api_job_ttl_s: int = 900  # how long a finished answer stays retrievable by URL
     api_max_jobs: int = 64  # hard ceiling on the in-memory store
 
+    # Observability (Phase 8 groundwork, issue #22). One row per answered question — never the
+    # question text, which is user content (§6). Bounded like the access cache, because a local
+    # tool must not grow a database nobody prunes.
+    metrics_db_path: str = "data/metrics.sqlite"
+    metrics_enabled: bool = True
+    metrics_ttl_s: int = 7_776_000  # 90 days
+    metrics_max_rows: int = 100_000
+
 
 def get_settings() -> Settings:
     """Return application settings loaded from the environment."""

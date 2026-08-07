@@ -24,7 +24,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from pythia.api import browse
+from pythia.api import browse, metrics
 from pythia.api.jobs import JobRejected, JobStatus, JobStore, Miss
 from pythia.api.service import Pipeline
 from pythia.api.view import to_view
@@ -295,6 +295,21 @@ def _register_routes(app: FastAPI) -> None:
             {"view": to_view(job.bundle.answer, job.bundle.recovery, settings=settings),
              "question": job.question, "job_id": job_id},
         )
+
+    @app.get("/stats", response_class=HTMLResponse)
+    def stats(request: Request, settings: Settings = Depends(get_settings_dep)) -> Response:
+        """What the app has actually done, aggregated from the metrics store.
+
+        The headline is the **refusal mix**, not latency: grounded-or-silent means the
+        answered / unsupported / no_match ratio is the product's health signal.
+        """
+        conn = metrics.connect(settings.metrics_db_path)
+        try:
+            metrics.init_db(conn)
+            result = metrics.summary(conn)
+        finally:
+            conn.close()
+        return TEMPLATES.TemplateResponse(request, "stats.html", {"s": result})
 
     @app.get("/healthz")
     def healthz(settings: Settings = Depends(get_settings_dep)) -> JSONResponse:

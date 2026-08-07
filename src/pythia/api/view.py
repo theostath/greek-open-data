@@ -13,28 +13,17 @@ about what "1.234,5" means, so a template must never format a number itself.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import StrEnum
 from typing import Any
 
 from config import Settings
 
-from pythia.api.service import NearMiss, RecoveryContext
-from pythia.planning.models import PlanStatus
+from pythia.api.service import NearMiss, RecoveryContext, RefusalShape, refusal_shape
 from pythia.synthesis.footer import format_number, staleness_step
 from pythia.synthesis.models import Answer, AnswerStatus, Footer
 
-
-class RefusalShape(StrEnum):
-    """Which refusal this is. Three, not two — they need three different screens."""
-
-    #: Nothing in the catalogue covers the question. Offer what was looked at.
-    NO_MATCH = "no_match"
-    #: The dataset exists but publishes nothing tabular. Name what it does publish.
-    UNSUPPORTED = "unsupported"
-    #: Planning MATCHED and synthesis still refused — most often the requested period falls
-    #: outside the data's observed range. Retrieval succeeded, so this dataset is NOT a near
-    #: miss, and saying otherwise tells the user the opposite of what happened.
-    MATCHED_BUT_REFUSED = "matched_but_refused"
+# Re-exported: the shape is defined in service.py so the render layer and the metrics store
+# cannot classify a refusal differently from one another.
+__all__ = ["AnswerView", "FactView", "RefusalShape", "RefusalView", "to_view"]
 
 
 @dataclass(frozen=True)
@@ -86,20 +75,11 @@ class AnswerView:
     narration_rejected: bool = False
 
 
-def _shape(answer: Answer, recovery: RecoveryContext) -> RefusalShape:
-    """Classify a refusal. ``matched_but_refused`` wins: it is the case that misleads."""
-    if recovery.matched_but_refused:
-        return RefusalShape.MATCHED_BUT_REFUSED
-    if answer.plan.status is PlanStatus.UNSUPPORTED:
-        return RefusalShape.UNSUPPORTED
-    return RefusalShape.NO_MATCH
-
-
 def to_view(answer: Answer, recovery: RecoveryContext, *, settings: Settings) -> AnswerView:
     """Map an answer and its recovery context onto the fields templates may read."""
     refusal = None
     if answer.status is AnswerStatus.REFUSED:
-        shape = _shape(answer, recovery)
+        shape = refusal_shape(answer, recovery) or RefusalShape.NO_MATCH
         refusal = RefusalView(
             shape=shape,
             reason=answer.refusal_reason or answer.text,
