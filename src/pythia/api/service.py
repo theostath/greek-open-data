@@ -13,16 +13,20 @@ I/O by design. No Phase 6 dataclass is amended to carry it.
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from enum import StrEnum
+from time import perf_counter
 from typing import Any
 
 from config import Settings, get_settings
 
 from pythia.access.models import AccessError
-from pythia.llm import LLMClient
+from pythia.llm import LLMClient, Usage
+from pythia.logging_setup import get_logger, log_event
 from pythia.planning.models import PlanStatus, QueryPlan
 from pythia.synthesis.answer import answer_question
 from pythia.synthesis.models import Answer, AnswerStatus, RefusalContext
@@ -36,6 +40,35 @@ MAX_NEAR_MISSES = 5
 STAGES = ("queued", "planning", "fetching", "synthesising")
 
 StageCallback = Callable[[str], None]
+
+
+class _StageClock:
+    """Times each stage off the same callback that drives the progress fragment.
+
+    Measuring what the user was actually shown, rather than instrumenting separately, means
+    the two cannot drift — and it costs nothing, since the callback already exists.
+    """
+
+    def __init__(self, on_stage: StageCallback | None) -> None:
+        self._on_stage = on_stage
+        self._marks: list[tuple[str, float]] = []
+
+    def __call__(self, stage: str) -> None:
+        """Record the transition, then forward it unchanged."""
+        self._marks.append((stage, perf_counter()))
+        if self._on_stage is not None:
+            self._on_stage(stage)
+
+    def finish(self) -> None:
+        """Close the final stage so its duration is measurable."""
+        self._marks.append(("_end", perf_counter()))
+
+    def elapsed(self, stage: str) -> float:
+        """Milliseconds spent in ``stage``, or 0.0 if it never ran."""
+        for index, (name, at) in enumerate(self._marks):
+            if name == stage and index + 1 < len(self._marks):
+                return (self._marks[index + 1][1] - at) * 1000.0
+        return 0.0
 
 
 @dataclass(frozen=True)
@@ -68,6 +101,38 @@ class RecoveryContext:
     #: ADR-0005 transliterates greeklish before retrieval; showing the result is how the user
     #: learns what was actually searched for.
     normalized_question: str = ""
+
+
+class RefusalShape(StrEnum):
+    """Which refusal this is. Three, not two — they need three different screens.
+
+    Defined here rather than in ``view.py`` so the render layer and the metrics store share
+    one definition: a dashboard that classified refusals differently from the page the user
+    saw would be worse than no dashboard.
+    """
+
+    #: Nothing in the catalogue covers the question. Offer what was looked at.
+    NO_MATCH = "no_match"
+    #: The dataset exists but publishes nothing tabular. Name what it does publish.
+    UNSUPPORTED = "unsupported"
+    #: Planning MATCHED and synthesis still refused — most often the requested period falls
+    #: outside the data's observed range. Retrieval succeeded, so this dataset is NOT a near
+    #: miss, and saying otherwise tells the user the opposite of what happened.
+    MATCHED_BUT_REFUSED = "matched_but_refused"
+
+
+def refusal_shape(answer: Answer, recovery: RecoveryContext) -> RefusalShape | None:
+    """Classify a refusal, or ``None`` when the answer is not one.
+
+    ``matched_but_refused`` wins: it is the case that would otherwise mislead.
+    """
+    if answer.status is not AnswerStatus.REFUSED:
+        return None
+    if recovery.matched_but_refused:
+        return RefusalShape.MATCHED_BUT_REFUSED
+    if answer.plan.status is PlanStatus.UNSUPPORTED:
+        return RefusalShape.UNSUPPORTED
+    return RefusalShape.NO_MATCH
 
 
 @dataclass(frozen=True)
@@ -213,6 +278,12 @@ class Pipeline:
         cfg = self.settings
         conn = connect(cfg.catalog_db_path)
         cache_conn = connect_cache(cfg.cache_db_path)
+        # Clear any usage left on this thread by a previous question, so the row we write
+        # counts this question's tokens and only this question's.
+        if self.llm is not None:
+            self.llm.drain_usage()
+        stages = _StageClock(on_stage)
+        started = perf_counter()
         try:
             init_cache_db(cache_conn)
             cache_conn.execute("PRAGMA journal_mode=WAL")
@@ -223,10 +294,65 @@ class Pipeline:
                 host_min_interval_s=cfg.access_host_min_interval_s,
             )
             with self._inference:
-                return self._run(question, resource_id, conn, cache_conn, transport, on_stage)
+                bundle = self._run(question, resource_id, conn, cache_conn, transport, stages)
+            stages.finish()
         finally:
             conn.close()
             cache_conn.close()
+
+        self._record(question, bundle, resource_id, stages, perf_counter() - started)
+        return bundle
+
+    def _record(
+        self, question: str, bundle: AnswerBundle, resource_id: str | None,
+        stages: _StageClock, elapsed_s: float,
+    ) -> None:
+        """Write one metrics row. Never raises: counting must not fail a finished answer."""
+        cfg = self.settings
+        if not cfg.metrics_enabled:
+            return
+        try:
+            from pythia.api import metrics
+
+            answer, plan = bundle.answer, bundle.answer.plan
+            usage = self.llm.drain_usage() if self.llm is not None else Usage()
+            table = answer.footer
+            shape = refusal_shape(answer, bundle.recovery)
+            conn = metrics.connect(cfg.metrics_db_path)
+            try:
+                metrics.init_db(conn)
+                metrics.record(conn, metrics.AnswerMetric(
+                    asked_at=metrics.utc_now(),
+                    # Length, never the text: the question is user content (§6).
+                    question_chars=len(question),
+                    language=plan.language,
+                    pinned=resource_id is not None,
+                    plan_status=plan.status.value,
+                    dataset_id=plan.dataset.id if plan.dataset else None,
+                    confidence=plan.confidence,
+                    plan_degraded=plan.degraded,
+                    answer_status=answer.status.value,
+                    refusal_shape=shape.value if shape else None,
+                    narration_rejected=answer.narration_rejected,
+                    caveats=len(answer.caveats),
+                    row_count=None,
+                    complete=table.complete if table else None,
+                    from_cache=None,
+                    prompt_tokens=usage.prompt_tokens,
+                    completion_tokens=usage.completion_tokens,
+                    llm_calls=usage.calls,
+                    llm_ms=usage.total_ms,
+                    plan_ms=stages.elapsed("planning"),
+                    fetch_ms=stages.elapsed("fetching"),
+                    synth_ms=stages.elapsed("synthesising"),
+                    total_ms=elapsed_s * 1000.0,
+                ))
+                metrics.purge(conn, ttl_s=cfg.metrics_ttl_s, max_rows=cfg.metrics_max_rows)
+            finally:
+                conn.close()
+        except Exception as exc:  # noqa: BLE001 — observability never fails an answer
+            log_event(get_logger("pythia.api.service"), logging.WARNING,
+                      "metrics.record_failed", error=f"{type(exc).__name__}: {exc}")
 
     def _run(
         self,

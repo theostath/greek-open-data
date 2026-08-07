@@ -374,6 +374,40 @@ button[disabled], button[aria-busy="true"] { opacity: 0.55; cursor: progress; }
 .pager-position { color: var(--ink-quiet); font-size: var(--step--1); margin-inline: auto; }
 .back { margin-top: var(--space-6); font-size: var(--step--1); }
 
+/* ---- Stats --------------------------------------------------------------
+   Bars are neutral, not amber: the accent means "actionable", and a proportion is neither an
+   action nor the system's current choice. Every bar is labelled with its own number, so the
+   bar is redundant reinforcement rather than the only channel. */
+
+.stat-block { margin-top: var(--space-7); }
+.stat-block h2 { font-size: var(--step-1); }
+.stat-block h3 {
+  font-size: var(--step-0); font-weight: 600;
+  margin-top: var(--space-5); margin-bottom: var(--space-2);
+}
+.stat-note { color: var(--ink-quiet); font-size: var(--step--1); max-width: 62ch; }
+
+.stat-table { border-collapse: collapse; width: 100%; margin-block: var(--space-3); }
+.stat-table th, .stat-table td {
+  text-align: start; padding: var(--space-2) var(--space-3) var(--space-2) 0;
+  border-top: 1px solid var(--rule); vertical-align: baseline;
+}
+.stat-table th { font-weight: 500; }
+.stat-table td.num { text-align: end; white-space: nowrap; width: 6rem; }
+.bar-cell { width: 45%; }
+.bar {
+  display: block; height: 0.55rem; min-width: 1px;
+  background: var(--ink-quiet); border-radius: 1px;
+}
+
+.stat-grid {
+  display: grid; gap: var(--space-3) var(--space-5);
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  margin-block: var(--space-3);
+}
+.stat-grid dt { color: var(--ink-quiet); font-size: var(--step--1); }
+.stat-grid dd { margin: 0; font-size: var(--step-2); font-weight: 600; }
+
 /* ---- Notices ----------------------------------------------------------- */
 
 .notice {

@@ -9,6 +9,8 @@ Callers own prompt construction and response validation; this module only moves 
 from __future__ import annotations
 
 import json
+import threading
+from dataclasses import dataclass
 from typing import Any, Protocol
 
 import httpx
@@ -31,11 +33,34 @@ class _RetryableStatus(Exception):
     """Internal marker for a 5xx / model-loading response worth retrying."""
 
 
+@dataclass(frozen=True)
+class Usage:
+    """Tokens and wall-clock consumed by LLM calls, summable across call sites."""
+
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    calls: int = 0
+    total_ms: float = 0.0
+
+    def __add__(self, other: Usage) -> Usage:
+        """Add two usages; one question spans a planner call and a narrator call."""
+        return Usage(
+            prompt_tokens=self.prompt_tokens + other.prompt_tokens,
+            completion_tokens=self.completion_tokens + other.completion_tokens,
+            calls=self.calls + other.calls,
+            total_ms=self.total_ms + other.total_ms,
+        )
+
+
 class LLMClient(Protocol):
     """Minimal chat interface: send messages, get back a parsed JSON object."""
 
     def complete_json(self, messages: list[Message], *, max_tokens: int) -> dict[str, Any]:
         """Return the model's response parsed as a JSON object (raises ``LLMError``)."""
+        ...
+
+    def drain_usage(self) -> Usage:
+        """Return usage accumulated **on this thread** since the last drain, and reset."""
         ...
 
 
@@ -65,6 +90,10 @@ class OllamaClient:
         attempts: int = 3,
     ) -> None:
         """Configure the client; nothing is sent until ``complete_json`` is called."""
+        # Thread-local, not an instance attribute: one client is shared by the whole process
+        # and up to ``api_max_concurrent_jobs`` worker threads call it at once, so a plain
+        # attribute would interleave two questions' token counts.
+        self._usage = threading.local()
         # Tolerate a legacy ``.../v1`` base URL so existing .env files keep working.
         self._url = base_url.rstrip("/").removesuffix("/v1") + "/api/chat"
         self._model = model
@@ -116,6 +145,7 @@ class OllamaClient:
         if resp.status_code >= 400:
             resp.raise_for_status()  # 4xx -> HTTPStatusError (not retried)
         data = resp.json()
+        self._record_usage(data)
         try:
             content: str = data["message"]["content"]
         except (KeyError, TypeError) as exc:
@@ -130,6 +160,29 @@ class OllamaClient:
         return content
 
 
+    def _record_usage(self, data: dict[str, Any]) -> None:
+        """Accumulate the counts Ollama already sends, tolerating their absence.
+
+        A backend that omits them (an older Ollama, or something else speaking this shape)
+        reports zero rather than raising: metrics are observability, and must never be able to
+        fail an answer.
+        """
+        nanoseconds = data.get("total_duration") or 0
+        current: Usage = getattr(self._usage, "value", Usage())
+        self._usage.value = current + Usage(
+            prompt_tokens=int(data.get("prompt_eval_count") or 0),
+            completion_tokens=int(data.get("eval_count") or 0),
+            calls=1,
+            total_ms=float(nanoseconds) / 1_000_000.0,
+        )
+
+    def drain_usage(self) -> Usage:
+        """Return this thread's accumulated usage and reset it."""
+        current: Usage = getattr(self._usage, "value", Usage())
+        self._usage.value = Usage()
+        return current
+
+
 class FakeLLM:
     """Deterministic ``LLMClient`` test double: returns a fixed dict or raises."""
 
@@ -139,14 +192,21 @@ class FakeLLM:
         """Configure the canned ``response`` (or an ``error`` to raise on every call)."""
         self._response = response if response is not None else {}
         self._error = error
+        self._usage = Usage()
         self.calls: list[list[Message]] = []
 
     def complete_json(self, messages: list[Message], *, max_tokens: int) -> dict[str, Any]:
         """Record the call and return the canned response (or raise the canned error)."""
         self.calls.append(messages)
+        self._usage += Usage(calls=1)
         if self._error is not None:
             raise self._error
         return self._response
+
+    def drain_usage(self) -> Usage:
+        """Report calls but zero tokens, so the offline suite stays deterministic."""
+        current, self._usage = self._usage, Usage()
+        return current
 
 
 def load_llm(settings: Settings | None = None) -> OllamaClient:

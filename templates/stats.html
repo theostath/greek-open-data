@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Statistics — Pythia{% endblock %}
+
+{% macro pct(part, whole) -%}
+{{ ((part / whole) * 100) | round | int if whole else 0 }}
+{%- endmacro %}
+
+{% block main %}
+<h1>What this has actually done</h1>
+
+{% if not s.total %}
+  <p class="lede">Nothing recorded yet. Ask a question and this page will fill in.</p>
+{% else %}
+
+<p class="lede">
+  <span class="num">{{ s.total }}</span> question{{ '' if s.total == 1 else 's' }} answered or
+  refused. No question text is stored — only its length — so nothing here can identify what
+  anyone asked.
+</p>
+
+{#
+  The refusal mix leads, deliberately. Grounded-or-silent means this ratio *is* the health
+  signal: a sudden fall in no_match would suggest the honesty gate had loosened, which matters
+  more than any latency number on this page.
+#}
+<section class="stat-block">
+  <h2>Outcomes</h2>
+  <p class="stat-note">
+    Refusals are expected, not failures — roughly half of all questions correctly find nothing.
+    Watch this ratio for sudden movement rather than for a target.
+  </p>
+  <table class="stat-table">
+    <tbody>
+      {% for status in ['answered', 'partial', 'refused'] %}
+      {% set n = s.by_status.get(status, 0) %}
+      <tr>
+        <th scope="row">{{ status }}</th>
+        <td class="num">{{ n }}</td>
+        <td class="num">{{ pct(n, s.total) }}%</td>
+        <td class="bar-cell"><span class="bar" style="width: {{ pct(n, s.total) }}%"></span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if s.by_refusal %}
+  <h3>Refusals by shape</h3>
+  <table class="stat-table">
+    <tbody>
+      {% for shape, n in s.by_refusal.items() %}
+      <tr>
+        <th scope="row">{{ shape.replace('_', ' ') }}</th>
+        <td class="num">{{ n }}</td>
+        <td class="num">{{ pct(n, s.by_status.get('refused', 0)) }}%</td>
+        <td class="bar-cell">
+          <span class="bar" style="width: {{ pct(n, s.by_status.get('refused', 0)) }}%"></span>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</section>
+
+<section class="stat-block">
+  <h2>Browsed vs searched</h2>
+  <p class="stat-note">
+    A question asked from <a href="/explore">the browse pages</a> pins its dataset and skips
+    retrieval entirely. Retrieval is the weakest part of the pipeline, so the gap between these
+    two rows is the direct measure of how much that helps.
+  </p>
+  <table class="stat-table">
+    <tbody>
+      <tr>
+        <th scope="row">Pinned from browsing</th>
+        <td class="num">{{ s.pinned_answered }} / {{ s.pinned_total }}</td>
+        <td class="num">{{ pct(s.pinned_answered, s.pinned_total) }}% answered</td>
+      </tr>
+      <tr>
+        <th scope="row">Found by searching</th>
+        <td class="num">{{ s.searched_answered }} / {{ s.searched_total }}</td>
+        <td class="num">{{ pct(s.searched_answered, s.searched_total) }}% answered</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="stat-block">
+  <h2>Time and cost</h2>
+  <dl class="stat-grid">
+    <div><dt>Median answer</dt><dd class="num">{{ (s.p50_ms / 1000) | round(1) }}s</dd></div>
+    <div><dt>95th percentile</dt><dd class="num">{{ (s.p95_ms / 1000) | round(1) }}s</dd></div>
+    <div><dt>LLM calls</dt><dd class="num">{{ s.llm_calls }}</dd></div>
+    <div><dt>Tokens in</dt><dd class="num">{{ '{:,}'.format(s.prompt_tokens) }}</dd></div>
+    <div><dt>Tokens out</dt><dd class="num">{{ '{:,}'.format(s.completion_tokens) }}</dd></div>
+    <div>
+      <dt>Cache hits</dt>
+      <dd class="num">{{ s.cache_hits }} / {{ s.fetched }}</dd>
+    </div>
+  </dl>
+  <p class="stat-note">
+    The model runs locally, so tokens cost time rather than money — they are here because they
+    explain the latency above, not because there is a bill.
+  </p>
+</section>
+
+<section class="stat-block">
+  <h2>Honesty guards</h2>
+  <dl class="stat-grid">
+    <div>
+      <dt>Narrations rejected</dt>
+      <dd class="num">{{ s.guard_rejections }}</dd>
+    </div>
+    <div>
+      <dt>Degraded planning</dt>
+      <dd class="num">{{ s.degraded }}</dd>
+    </div>
+  </dl>
+  <p class="stat-note">
+    A rejected narration means the claim guard caught the model stating something the table did
+    not support, and the deterministic wording was shown instead. Non-zero here is the system
+    working, not failing. Degraded planning means a dataset was chosen on a retrieval score
+    alone because the model was unavailable.
+  </p>
+</section>
+
+{% endif %}
+
+<p class="back"><a href="/">← Ask a question</a></p>
+{% endblock %}
