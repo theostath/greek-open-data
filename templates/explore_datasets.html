@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}{{ label }} — Pythia{% endblock %}
+
+{% block main %}
+<h1 dir="auto">{{ label }}</h1>
+
+<p class="lede">
+  {{ total }} dataset{{ '' if total == 1 else 's' }} here that Pythia can read.
+  Asking from this page <strong>pins the dataset</strong>, so the answer comes from the one you
+  picked rather than from a search.
+</p>
+
+{% include "partials/_ask.html" %}
+
+<div id="result" aria-live="polite"></div>
+
+<ul class="dataset-list">
+  {% for dataset in datasets %}
+  <li class="dataset">
+    <h2 class="dataset-title" dir="auto">{{ dataset.title }}</h2>
+    <p class="dataset-meta">
+      <span dir="auto">{{ dataset.publisher }}</span>
+      {% if dataset.last_updated %}
+        · updated {{ dataset.last_updated[:10] }}
+      {% endif %}
+      ·
+      {% for fmt in dataset.formats %}<span class="fmt">{{ fmt }}</span>{% endfor %}
+    </p>
+    <p class="dataset-actions">
+      {% if dataset.resource_id %}
+      {# Posts the dataset title as the question and pins the resource. The title is a good
+         question here for the same reason the refusal screen advises it: it is the wording the
+         publisher chose. #}
+      <form hx-post="/ask" hx-target="#result" hx-swap="innerHTML"
+            hx-disabled-elt="find button">
+        <input type="hidden" name="question" value="{{ dataset.title }}">
+        <input type="hidden" name="resource_id" value="{{ dataset.resource_id }}">
+        <button type="submit">Ask about this</button>
+      </form>
+      {% endif %}
+      <a class="dataset-source" href="https://data.gov.gr/dataset/{{ dataset.id }}">
+        View on data.gov.gr</a>
+    </p>
+  </li>
+  {% else %}
+  <li class="dataset empty-list">Nothing readable here. Try another publisher or topic.</li>
+  {% endfor %}
+</ul>
+
+{% if pages > 1 %}
+<nav class="pager" aria-label="Pagination">
+  {% set qs = ('publisher=' ~ (publisher | urlencode)) if publisher
+              else ('theme=' ~ (theme | urlencode)) %}
+  {% if page > 1 %}
+    <a rel="prev" href="/explore/datasets?{{ qs }}&page={{ page - 1 }}">← Previous</a>
+  {% endif %}
+  <span class="pager-position">Page <span class="num">{{ page }}</span> of
+    <span class="num">{{ pages }}</span></span>
+  {% if page < pages %}
+    <a rel="next" href="/explore/datasets?{{ qs }}&page={{ page + 1 }}">Next →</a>
+  {% endif %}
+</nav>
+{% endif %}
+
+<p class="back"><a href="/explore">← All publishers and topics</a></p>
+{% endblock %}

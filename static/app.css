@@ -328,6 +328,52 @@ button[disabled], button[aria-busy="true"] { opacity: 0.55; cursor: progress; }
 
 .reask { margin-top: var(--space-5); }
 
+/* ---- Explore ------------------------------------------------------------
+   A directory, not a card grid. Rows separated by hairlines, count right-aligned in tabular
+   figures so the column can be scanned — which is the whole reason to look at this page. */
+
+.explore-note {
+  color: var(--ink-quiet); font-size: var(--step--1);
+  padding: var(--space-3) 0; border-block: 1px solid var(--rule);
+}
+.explore-group { margin-top: var(--space-7); }
+.explore-group h2 { font-size: var(--step-1); margin-bottom: var(--space-1); }
+.explore-blurb { color: var(--ink-quiet); font-size: var(--step--1); max-width: 62ch; }
+
+.publishers, .themes { list-style: none; padding: 0; margin: 0; }
+.publishers li, .themes li {
+  display: flex; gap: var(--space-3); align-items: baseline;
+  justify-content: space-between;
+  padding: var(--space-2) 0; border-top: 1px solid var(--rule);
+}
+.publishers .count, .themes .count { color: var(--ink-quiet); font-size: var(--step--1); }
+
+/* Two columns once there is room; municipalities alone run to 35 entries. */
+@media (min-width: 46rem) {
+  .publishers { display: grid; grid-template-columns: 1fr 1fr; column-gap: var(--space-6); }
+}
+
+.dataset-list { list-style: none; padding: 0; margin: var(--space-5) 0 0; }
+.dataset { padding: var(--space-4) 0; border-top: 1px solid var(--rule); }
+.dataset-title { font-size: var(--step-0); font-weight: 600; margin-bottom: var(--space-1); }
+.dataset-meta {
+  color: var(--ink-quiet); font-size: var(--step--1);
+  display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: baseline;
+  margin-bottom: var(--space-3);
+}
+.dataset-actions { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: center; }
+.dataset-actions form { margin: 0; }
+.dataset-actions button { padding: var(--space-2) var(--space-4); font-size: var(--step--1); }
+.dataset-source { font-size: var(--step--1); color: var(--ink-quiet); }
+.empty-list { color: var(--ink-quiet); }
+
+.pager {
+  display: flex; gap: var(--space-4); align-items: baseline;
+  margin-top: var(--space-6); padding-top: var(--space-3); border-top: 1px solid var(--rule);
+}
+.pager-position { color: var(--ink-quiet); font-size: var(--step--1); margin-inline: auto; }
+.back { margin-top: var(--space-6); font-size: var(--step--1); }
+
 /* ---- Notices ----------------------------------------------------------- */
 
 .notice {

@@ -17,6 +17,11 @@
     <p>Keep it under {{ detail }} characters. One question at a time works better than several
       joined together.</p>
 
+  {% elif blame == "bad_resource" %}
+    <h2>That dataset reference isn't valid</h2>
+    <p>The link you followed carries a dataset id this server cannot read. Browse again and
+      pick the dataset from the list.</p>
+
   {% elif blame == "busy" %}
     <h2>Busy right now</h2>
     <p>
