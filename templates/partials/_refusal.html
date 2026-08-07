@@ -66,7 +66,13 @@
       <h3>Closest in the catalogue, though none of them answer this</h3>
       <ul>
         {% for near in view.refusal.near_misses %}
-        <li><a href="{{ near.url }}" dir="auto">{{ near.title }}</a></li>
+        {# New tab: a refusal is a route, not a dead end. Following a near miss must not
+           discard the refusal that explains why it is only a near miss. #}
+        <li>
+          <a href="{{ near.url }}" dir="auto"
+             target="_blank" rel="noopener noreferrer">{{ near.title }}<span
+             class="visually-hidden"> (opens in a new tab)</span></a>
+        </li>
         {% endfor %}
       </ul>
     </section>
