@@ -109,7 +109,7 @@ def to_view(answer: Answer, recovery: RecoveryContext, *, settings: Settings) ->
         status=answer.status,
         text=answer.text,
         facts=facts,
-        chart=answer.chart.vega_lite if answer.chart else None,
+        chart=answer.chart.option if answer.chart else None,
         chart_caveat=answer.chart.caveat if answer.chart else None,
         chart_title=answer.chart.title if answer.chart else "",
         footer=answer.footer,

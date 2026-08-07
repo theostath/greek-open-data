@@ -1,12 +1,22 @@
-"""Deterministic Vega-Lite v5 specs. Chart choice is a function of data shape, never a model's.
+"""Deterministic Apache ECharts options. Chart choice is a function of data shape, never a
+model's.
 
-Two properties are load-bearing. First, **untrusted strings never become field references or
-data keys** — a perfectly ordinary Greek column called ``Δείκτης [2021=100]`` is read by Vega
-as a nested accessor and the chart renders empty with no error, and a hostile one is worse.
-Data keys are the fixed synthetic ``dim``/``value``/``series``; human labels go only into
-titles, which the runtime escapes. Second, ``validate_spec`` enforces that no expression-
-bearing key reaches the browser, so "we do not emit expressions" is checked rather than
-intended.
+Three properties are load-bearing.
+
+**Untrusted strings never become field references or data keys.** Series values are plain
+arrays and category labels are plain strings; nothing publisher-supplied is ever interpreted
+as an accessor. Human labels go only into titles, names and legend entries, which the runtime
+escapes.
+
+**No option we emit can carry executable code.** ECharts accepts JavaScript functions for
+``formatter``, ``renderItem`` and friends. Those cannot survive JSON transport — the option
+ships inside a ``<script type="application/json">`` and is parsed, never evaluated — but
+``validate_spec`` refuses them by name anyway, so the guarantee does not rest on the transport
+staying JSON forever.
+
+**Ordering is decided in Python, not by the renderer.** Bars are sorted here when the table is
+complete, so what determines the ranking is inspectable and testable rather than a renderer
+flag (ADR-0008 amendment).
 """
 
 from __future__ import annotations
@@ -19,29 +29,45 @@ from config import Settings, get_settings
 
 from pythia.synthesis.models import ChartKind, ChartSpec, CoercedKind, FactTable, Operation
 
-_SCHEMA = "https://vega.github.io/schema/vega-lite/v5.json"
-
 #: Keys we are willing to emit. Everything outside this set is rejected outright rather than
-#: filtered, so a future edit cannot quietly widen the surface.
+#: filtered, so a future edit cannot quietly widen the surface. Derived from the option this
+#: module actually builds — if you add an option key, add it here deliberately.
 _ALLOWED_KEYS = frozenset({
-    "$schema", "title", "text", "subtitle", "description", "data", "values", "mark", "type",
-    "point", "encoding", "x", "y", "color", "tooltip", "field", "axis", "scale", "sort",
-    "zero", "domain", "legend", "width", "height", "config", "view", "stroke", "labelAngle",
-    "labelLimit", "titleLimit", "format", "timeUnit", "interpolate", "strokeWidth",
-    # `range` carries the categorical colour list. Vega-Lite accepts only scalars or arrays of
-    # scalars here — never an expression — and the leaf-scalar check below still applies, so
-    # allowing it does not widen the executable surface. Note that allowlisting `scale` alone
-    # was NOT sufficient: the guard filters every key at every depth.
-    "range",
+    # top level
+    "animation", "backgroundColor", "color", "aria", "title", "grid", "tooltip", "legend",
+    "xAxis", "yAxis", "series",
+    # title
+    "text", "subtext", "left", "top",
+    # aria / accessibility
+    "enabled", "decal", "show", "description",
+    # grid
+    "right", "bottom", "containLabel",
+    # tooltip / legend
+    "trigger", "orient",
+    # axes
+    "type", "name", "nameLocation", "nameGap", "data", "axisLabel", "hideOverlap",
+    "boundaryGap", "splitLine", "lineStyle",
+    # series
+    "barMaxWidth", "showSymbol", "symbolSize", "smooth",
+})
+
+#: Keys that would make an ECharts option executable, network-reachable, or otherwise
+#: interpreted rather than displayed. None of these can survive JSON, but the guard names them
+#: so the guarantee does not depend on the transport.
+_FORBIDDEN_KEYS = frozenset({
+    "formatter", "valueFormatter", "labelFormatter", "renderItem", "tooltipFormatter",
+    "url", "expr", "signal", "on", "bind", "loader", "transform", "dataset", "function",
+    "callback", "onclick", "handler", "graphic", "media", "toolbox",
 })
 
 #: Categorical series colours: Okabe-Ito, reordered so its orange (#e69f00) and yellow
 #: (#f0e442) come last.
 #:
-#: Two rules meet here. Vega-Lite's default (tableau10) is not colourblind-safe, and the amber
-#: UI accent means "actionable" — so a series painted amber-adjacent both misreads for
-#: colourblind readers and quietly steals the accent's only job. Okabe-Ito fixes the first;
-#: pushing its two warm entries past the point realistic series counts reach fixes the second.
+#: Two rules meet here. A renderer's default palette is not colourblind-safe, and the amber UI
+#: accent means "actionable" — so a series painted amber-adjacent both misreads for colourblind
+#: readers and quietly steals the accent's only job. Okabe-Ito fixes the first; pushing its two
+#: warm entries past the point realistic series counts reach fixes the second. ECharts' decal
+#: patterns (enabled below) add a second, non-colour channel on top.
 _SERIES_COLORS: tuple[str, ...] = (
     "#0072b2",  # blue
     "#009e73",  # bluish green
@@ -53,24 +79,13 @@ _SERIES_COLORS: tuple[str, ...] = (
     "#f0e442",  # yellow — lowest contrast on white, so last
 )
 
-#: Keys that make a Vega-Lite document executable or network-reachable.
-_FORBIDDEN_KEYS = frozenset({
-    "url", "signal", "expr", "datasets", "params", "calculate", "transform", "selection",
-    "on", "bind", "loader",
-})
-
 
 class UnsafeSpecError(Exception):
-    """A generated spec contained something we refuse to hand to a browser."""
-
-
-#: The only keys a plotted data row may carry. Fixed and synthetic, so no publisher-supplied
-#: string ever becomes a field name.
-_DATA_KEYS = frozenset({"dim", "value", "series"})
+    """A generated option contained something we refuse to hand to a browser."""
 
 
 def validate_spec(spec: Any, *, _depth: int = 0) -> None:
-    """Assert a spec is inert data: allowlisted keys, no expressions, scalar leaves."""
+    """Assert an option is inert data: allowlisted keys, no executable keys, scalar leaves."""
     if _depth > 12:
         raise UnsafeSpecError("spec nested too deeply")
     if isinstance(spec, dict):
@@ -78,11 +93,11 @@ def validate_spec(spec: Any, *, _depth: int = 0) -> None:
             if not isinstance(key, str):
                 raise UnsafeSpecError(f"non-string spec key: {key!r}")
             if key in _FORBIDDEN_KEYS:
-                raise UnsafeSpecError(f"forbidden Vega-Lite key: {key!r}")
+                raise UnsafeSpecError(f"forbidden ECharts key: {key!r}")
             if key not in _ALLOWED_KEYS:
                 raise UnsafeSpecError(f"key not on the allowlist: {key!r}")
-            if key == "values":
-                _validate_rows(value)
+            if key == "data":
+                _validate_data(value)
             else:
                 validate_spec(value, _depth=_depth + 1)
     elif isinstance(spec, list):
@@ -92,40 +107,44 @@ def validate_spec(spec: Any, *, _depth: int = 0) -> None:
         raise UnsafeSpecError(f"non-scalar leaf in spec: {type(spec).__name__}")
 
 
-def _validate_rows(rows: Any) -> None:
-    """Assert the inlined data is flat rows keyed only by the synthetic field names."""
+def _validate_data(rows: Any) -> None:
+    """Assert plotted data is scalars, or ``[x, y]`` scalar pairs, and nothing else.
+
+    This is where publisher-controlled values land, so it is the strictest check in the
+    module: no objects, no nesting beyond a pair, no callables.
+    """
     if not isinstance(rows, list):
-        raise UnsafeSpecError("data.values must be a list of rows")
+        raise UnsafeSpecError("data must be a list")
     for row in rows:
-        if not isinstance(row, dict):
-            raise UnsafeSpecError("data.values must hold flat objects")
-        extra = set(row) - _DATA_KEYS
-        if extra:
-            raise UnsafeSpecError(f"data row carries non-synthetic keys: {sorted(extra)}")
-        for value in row.values():
-            if not isinstance(value, str | int | float | bool | None):
-                raise UnsafeSpecError("data row values must be scalars")
+        if isinstance(row, list):
+            if len(row) != 2:
+                raise UnsafeSpecError("a data pair must hold exactly [x, y]")
+            for value in row:
+                if not isinstance(value, str | int | float | bool | None):
+                    raise UnsafeSpecError("data pair values must be scalars")
+        elif not isinstance(row, str | int | float | bool | None):
+            raise UnsafeSpecError(f"data must hold scalars or pairs, got {type(row).__name__}")
 
 
-def vega_type(kind: CoercedKind) -> str:
-    """Map a *coerced* kind to a Vega-Lite encoding type.
+def axis_type(kind: CoercedKind) -> str:
+    """Map a *coerced* kind to an ECharts axis type.
 
     Deliberately not ``Column.type``: that is inferred from the first 200 uncoerced rows, so
-    the Greek-comma measure ``86,6`` is ``text`` there. Encoding it as nominal makes the axis
-    sort lexically — ``'100' < '86,6'`` — and scrambles the chart it was meant to draw.
+    the Greek-comma measure ``86,6`` is ``text`` there. Treating it as a category makes the
+    axis sort lexically — ``'100' < '86,6'`` — and scrambles the chart it was meant to draw.
     """
     if kind is CoercedKind.DECIMAL:
-        return "quantitative"
+        return "value"
     if kind is CoercedKind.TEMPORAL:
-        return "temporal"
-    return "nominal"
+        return "time"
+    return "category"
 
 
 def build_spec(
     facts: FactTable, *, title: str, caveat: str | None = None, complete: bool = True,
     label: str = "", settings: Settings | None = None,
 ) -> ChartSpec | None:
-    """Build a validated spec, or ``None`` when no chart would inform.
+    """Build a validated option, or ``None`` when no chart would inform.
 
     A single figure is a sentence, not a chart, and a listing has nothing to plot.
     """
@@ -135,65 +154,118 @@ def build_spec(
     if len(facts.series) < 2:
         return None
 
-    temporal = facts.operation is Operation.NONE and facts.series_field is not None or (
-        facts.operation is Operation.NONE and _looks_temporal(facts)
-    )
-    kind = ChartKind.LINE if temporal else ChartKind.BAR
     points = _bounded_points(facts, cfg)
     if points is None:
         return None
 
-    encoding: dict[str, Any] = {
-        "x": {
-            "field": "dim",
-            "type": "temporal" if kind is ChartKind.LINE else "nominal",
-            "axis": {"title": label or (facts.dimension or ""), "labelLimit": 160},
-            **({} if kind is ChartKind.LINE else {"sort": _sort_order(complete)}),
-        },
-        "y": {
-            "field": "value",
-            "type": "quantitative",
-            "axis": {"title": facts.measure or ""},
-            # A non-zero-based bar axis exaggerates differences; free to prevent.
-            "scale": {"zero": kind is ChartKind.BAR},
-        },
-    }
-    if facts.series_field:
-        encoding["color"] = {"field": "series", "type": "nominal",
-                             "legend": {"title": "", "labelLimit": 160},
-                             "scale": {"range": list(_SERIES_COLORS)}}
+    temporal = facts.operation is Operation.NONE and (
+        facts.series_field is not None or _looks_temporal(facts)
+    )
+    grouped = bool(facts.series_field)
+    kind = (
+        ChartKind.LINE if temporal
+        else ChartKind.GROUPED_BAR if grouped
+        else ChartKind.BAR
+    )
 
-    spec: dict[str, Any] = {
-        "$schema": _SCHEMA,
-        # Literal strings only. A signal or calculate here would be an expression-injection
-        # vector, and the caveat is exactly the text an attacker would want to rewrite.
-        "title": {"text": title, **({"subtitle": caveat} if caveat else {})},
-        "description": title,
-        "width": 640,
-        "height": 320,
-        "data": {"values": points},
-        "mark": {"type": kind.value, **({"point": True} if kind is ChartKind.LINE else {})},
-        "encoding": encoding,
-    }
-    validate_spec(spec)
-    if len(json.dumps(spec, ensure_ascii=False)) > cfg.synthesis_chart_max_bytes:
+    series, categories = _series(points, kind, complete)
+    if not series:
         return None
-    return ChartSpec(vega_lite=spec, kind=kind, title=title, caveat=caveat)
+
+    option: dict[str, Any] = {
+        # Motion is opt-in from the client, which honours prefers-reduced-motion; a chart that
+        # animates on arrival regardless of that setting is a WCAG problem, not a flourish.
+        "animation": False,
+        "backgroundColor": "transparent",
+        "color": list(_SERIES_COLORS),
+        # Decals give a second, non-colour channel, which is what DESIGN.md's "never encode
+        # meaning in hue alone" rule asks for and Vega-Lite could not provide.
+        "aria": {"enabled": True, "decal": {"show": True}, "description": title},
+        # Literal strings only. The caveat is exactly the text an attacker would want to
+        # rewrite, so it goes in as inert text and is never a template.
+        "title": {"text": title, "subtext": caveat or "", "left": "left"},
+        "grid": {"left": 8, "right": 16, "top": 64, "bottom": 24, "containLabel": True},
+        "tooltip": {"trigger": "axis"},
+        "xAxis": {
+            "type": "time" if kind is ChartKind.LINE else "category",
+            "name": label or (facts.dimension or ""),
+            "nameLocation": "middle",
+            "nameGap": 34,
+            "axisLabel": {"hideOverlap": True},
+            **({"data": categories} if kind is not ChartKind.LINE else {}),
+            **({"boundaryGap": True} if kind is not ChartKind.LINE else {}),
+        },
+        "yAxis": {
+            "type": "value",
+            "name": facts.measure or "",
+            "nameLocation": "end",
+            "splitLine": {"show": True},
+        },
+        "series": series,
+    }
+    if grouped:
+        option["legend"] = {"top": "bottom", "orient": "horizontal"}
+
+    validate_spec(option)
+    if len(json.dumps(option, ensure_ascii=False)) > cfg.synthesis_chart_max_bytes:
+        return None
+    return ChartSpec(option=option, kind=kind, title=title, caveat=caveat)
+
+
+def _series(
+    points: list[dict[str, Any]], kind: ChartKind, complete: bool
+) -> tuple[list[dict[str, Any]], list[Any]]:
+    """Group points into ECharts series, and return the category axis values with them."""
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for point in points:
+        groups.setdefault(str(point.get("series", "")), []).append(point)
+
+    if kind is ChartKind.LINE:
+        # A time axis takes [x, y] pairs, so categories are not needed and gaps stay real
+        # rather than being evenly spaced by a category axis.
+        return (
+            [
+                {"name": name, "type": "line", "showSymbol": True, "symbolSize": 5,
+                 "smooth": False,  # smoothing across a gap would imply data we do not have
+                 "data": [[point.get("dim"), point.get("value")] for point in rows]}
+                for name, rows in groups.items()
+            ],
+            [],
+        )
+
+    # Bars: order is decided here, not by a renderer flag, so the ranking is inspectable.
+    # Ranking a truncated table is a superlative claim rendered visually — the categories that
+    # were never fetched would read as absent rather than unknown — so sort only when complete.
+    ordered = _ordered_categories(points, complete)
+    index = {category: position for position, category in enumerate(ordered)}
+    built = []
+    for name, rows in groups.items():
+        values: list[Any] = [None] * len(ordered)
+        for point in rows:
+            position = index.get(str(point.get("dim")))
+            if position is not None:
+                values[position] = point.get("value")
+        built.append({"name": name, "type": "bar", "barMaxWidth": 48, "data": values})
+    return built, ordered
+
+
+def _ordered_categories(points: list[dict[str, Any]], complete: bool) -> list[str]:
+    """Category order: by descending value when the table is complete, else as published."""
+    seen: dict[str, float] = {}
+    for point in points:
+        category = str(point.get("dim"))
+        value = point.get("value")
+        numeric = float(value) if isinstance(value, int | float) else 0.0
+        seen[category] = seen.get(category, 0.0) + numeric
+    if complete:
+        return sorted(seen, key=lambda category: (-seen[category], category))
+    return list(seen)
 
 
 def _looks_temporal(facts: FactTable) -> bool:
     """Report whether the series' x values are ISO dates."""
     sample = str(facts.series[0].get("dim", ""))
     return len(sample) >= 7 and sample[:4].isdigit() and sample[4:5] == "-"
-
-
-def _sort_order(complete: bool) -> Any:
-    """Sort bars by value only when the table is complete.
-
-    Ranking a truncated table is a superlative claim rendered visually: the categories that
-    were never fetched read as absent rather than unknown.
-    """
-    return "-y" if complete else "x"
 
 
 def _bounded_points(facts: FactTable, cfg: Settings) -> list[dict[str, Any]] | None:

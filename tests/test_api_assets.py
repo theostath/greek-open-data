@@ -1,6 +1,6 @@
 """Vendored asset integrity.
 
-A CDN would break the local-first guarantee, so htmx and the Vega bundles are committed. Their
+A CDN would break the local-first guarantee, so htmx and ECharts are committed. Their
 hashes are asserted here rather than merely recorded in ADR-0008, so silent drift fails
 ``make check`` instead of relying on someone noticing in review.
 """
@@ -18,9 +18,11 @@ VENDOR = Path("static/vendor")
 #: the point: the diff makes the swap visible.
 EXPECTED = {
     "htmx.min.js": "e209dda5c8235479f3166defc7750e1dbcd5a5c1808b7792fc2e6733768fb447",
-    "vega.min.js": "e432c751a6363f4a61da62920cc7d7ebd13cf09d82949f8f486248f8071dc3ce",
-    "vega-lite.min.js": "cd32314b1e76e7d879dc9f0534b62be714df03554486c7ca2381abfd0a92d2f4",
-    "vega-embed.min.js": "072c054f2a6310725e038c38a71e00052705e31835632462c9717a23a384e895",
+    # Apache ECharts 5.5.1, the `common` build: line/bar/pie plus the full grid component and
+    # the accessibility module (aria + decal). The full dist is 1.0 MB and buys chart types
+    # this product has no use for; `simple` drops grid features the axes need.
+    "echarts.common.min.js":
+        "66f17003724d5b6c4c2348b907290afe98363c6e7beb4a594fdb616f00496d55",
 }
 
 

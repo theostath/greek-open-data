@@ -64,7 +64,9 @@ on this project being open source — Highcharts is the live example — are onl
   Model id in config, not inline. Anthropic is retained **only** for RAGAS dev-eval
   (ADR-0003). Superseded the original Claude Sonnet choice per `plan.md` direction change.
 - **HTTP:** `httpx` (async), with `tenacity` for retries.
-- **Charts:** emit Vega-Lite JSON specs; render client-side.
+- **Charts:** emit **Apache ECharts** option objects (Apache-2.0, ADR-0009); render
+  client-side. Highcharts was ruled out: its NonCommercial licence conflicts with this
+  project's Apache-2.0 grant.
 - **Testing:** `pytest`. **Lint/format:** `ruff`. **Types:** `mypy --strict` over `src/` **and
   root `config.py`** — all three are configured in `pyproject.toml`, so run them bare
   (`uv run mypy`, no path argument; passing one skips `config.py`, where every setting lives).
@@ -131,7 +133,7 @@ If you believe a swap is warranted, write a 3-line ADR in `docs/adr/` and procee
 │   │   ├── coerce.py            # Greek decimal comma, periods, sentinels (pure)
 │   │   ├── bind.py              # column roles, series identity, params (pure)
 │   │   ├── compute.py           # THE ONLY SOURCE OF NUMBERS (pure)
-│   │   ├── chart.py             # deterministic Vega-Lite + validate_spec (pure)
+│   │   ├── chart.py             # deterministic ECharts option + validate_spec (pure)
 │   │   ├── narrate.py           # placeholder prompt + deterministic template
 │   │   ├── verify.py            # the claim guard (pure)
 │   │   ├── footer.py            # provenance, coverage, staleness (pure)
@@ -151,7 +153,7 @@ If you believe a swap is warranted, write a 3-line ADR in `docs/adr/` and procee
 ├── templates/                   # Jinja2 + HTMX (Phase 7)
 │   └── partials/                # _ask, _progress, _result, _answer, _refusal, _footer,
 │                                # _chart, _error, _expired
-├── static/                      # app.css, app.js, vendor/ (htmx + vega, hash-pinned)
+├── static/                      # app.css, app.js, vendor/ (htmx + echarts, hash-pinned)
 └── docs/
     ├── api_findings.md          # OUTPUT of Phase 1 — the source of truth for endpoints
     ├── api_probe_raw.md         # raw probe evidence behind api_findings.md
@@ -314,7 +316,7 @@ Status legend: [ ] not started · [~] in progress · [x] done
       DataStore (24,390/24,390 rows) and an off-portal municipal endpoint.
       Run with `make fetch RESOURCE_ID=<id>`.
 - [x] **Phase 6 — Synthesis:** `answer_question()` (`synthesis/answer.py`) → typed `Answer`
-      (`answered | partial | refused`) with a Vega-Lite spec and a mandatory provenance footer.
+      (`answered | partial | refused`) with a chart option and a mandatory provenance footer.
       **The LLM never emits a quantity and never sees the table** — it gets opaque placeholders
       and the real strings are substituted back after `verify.check_claims`, which gates
       numerals, number-words, trend/superlative language, wrong-label figures and markup

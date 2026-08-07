@@ -21,36 +21,45 @@
   });
 
   /* ---- Charts -----------------------------------------------------------
-     The spec arrives as application/json, never as executable code, which is what lets the
-     CSP keep script-src at 'self' with no 'unsafe-inline'. */
+     The option arrives as application/json, never as executable code, which is what lets the
+     CSP keep script-src at 'self' with no 'unsafe-inline' — and means no ECharts option can
+     smuggle in a JavaScript formatter. */
+  var charts = [];
+
   function renderCharts(root) {
     var figures = (root || document).querySelectorAll(".chart");
     figures.forEach(function (figure) {
-      var holder = figure.querySelector(".vega-spec");
-      var target = figure.querySelector(".vega-target");
+      var holder = figure.querySelector(".chart-option");
+      var target = figure.querySelector(".chart-target");
       if (!holder || !target || target.dataset.rendered) return;
-      if (typeof window.vegaEmbed !== "function") return;
+      if (!window.echarts) return;
 
-      var spec;
+      var option;
       try {
-        spec = JSON.parse(holder.textContent);
+        option = JSON.parse(holder.textContent);
       } catch (err) {
-        return; // the figures are all in the table above; a broken chart is not fatal
+        return; // every figure is in the table above; a broken chart is not fatal
       }
 
       target.dataset.rendered = "1";
-      window
-        .vegaEmbed(target, spec, {
-          actions: { export: true, source: false, compiled: false, editor: false },
-          renderer: "canvas",
-          hover: !reduced,
-          config: reduced ? { view: { continuousWidth: 400 } } : {}
-        })
-        .catch(function () {
-          target.remove();
-        });
+      try {
+        var chart = window.echarts.init(target, null, { renderer: "canvas" });
+        // Animation is already off in the option; this is belt and braces for the case where
+        // a future option forgets, since a reduced-motion user must not be animated at.
+        chart.setOption(option, { notMerge: true, silent: reduced });
+        charts.push(chart);
+      } catch (err) {
+        target.remove();
+      }
     });
   }
+
+  // ECharts sizes to its container at init and does not observe resizes itself.
+  window.addEventListener("resize", function () {
+    charts.forEach(function (chart) {
+      try { chart.resize(); } catch (err) { /* a disposed chart is not an error */ }
+    });
+  });
 
   document.addEventListener("DOMContentLoaded", function () {
     renderCharts(document);

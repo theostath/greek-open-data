@@ -71,8 +71,9 @@ Supporting decisions made under this one:
 
 - **No public deployment without a further decision.** This ADR does not authorise one;
   hosting would require re-deciding the LLM and embedding story first.
-- **~853 KB of vendored JavaScript** (htmx 2.0.4, vega 5.30.0, vega-lite 5.21.0,
-  vega-embed 6.26.0) is committed to the repo. Their SHA-256 digests are asserted in
+- **~700 KB of vendored JavaScript** is committed to the repo. **Superseded by ADR-0009:**
+  the Vega bundles were replaced by Apache ECharts 5.5.1 (`common`) on 2026-08-07; the digest
+  table below is historical, and `tests/test_api_assets.py` holds the current ones. Their SHA-256 digests are asserted in
   `tests/test_api_assets.py`, so a silent swap fails `make check` rather than relying on
   review. Digests are listed below.
 - **Browser-reachability triggers the "revisit if ever publicly hosted" caveat** in
