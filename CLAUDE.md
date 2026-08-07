@@ -22,6 +22,13 @@ discoverability with retrieval + grounded synthesis.
 **Out of scope (for now):** user accounts, multi-tenant hosting, write-back to any
 government system, cross-dataset statistical modeling/forecasting, mobile apps.
 
+**Licence: Apache-2.0, and that is a deliberate product decision.** Public data deserves public
+tooling. Two practical consequences for the code: every dependency and every vendored asset
+must carry an Apache-2.0-compatible licence (so no GPL, and no proprietary bundle without an
+explicit open-source grant recorded in an ADR), and third-party components whose terms depend
+on this project being open source — Highcharts is the live example — are only usable while the
+`LICENSE` file stays. Check licences before adding a dependency, not after.
+
 ---
 
 ## 2. Core principles

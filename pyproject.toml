@@ -2,7 +2,21 @@
 name = "pythia"
 version = "0.0.0"
 description = "Natural-language query assistant over the Greek open-data portal (data.gov.gr)"
+readme = "README.md"
 requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+classifiers = [
+    # No "License ::" classifier: PEP 639 deprecates it once `license` carries an SPDX
+    # expression, and some build backends reject having both.
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: Greek",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
 dependencies = [
     "pydantic-settings>=2.0",
     "httpx>=0.27",

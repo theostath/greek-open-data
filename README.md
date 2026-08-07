@@ -1,13 +1,21 @@
 # Pythia
 
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 > Natural-language query assistant over the Greek national open-data portal
 > ([data.gov.gr](https://data.gov.gr)). Ask a question in **Greek or English** → get the
 > right dataset, a **grounded, cited answer**, and a chart — with a freshness/provenance footer.
 
-**Status:** early development. The pipeline runs end to end on the command line — Phases 0–6
-(setup → API discovery → ingestion → retrieval → planning → access → synthesis) are complete,
-so `make answer QUESTION="..."` returns a grounded answer, a chart spec and a provenance
-footer. Phase 7 (the web interface) is next. See the [roadmap](#roadmap).
+**Status:** early development. Phases 0–7 are complete — the pipeline runs end to end on the
+command line *and* in a browser. `uv run pythia-dev` serves the web app on `127.0.0.1:8000`;
+`uv run python -m pythia.synthesis.answer --question "..."` does the same from a terminal. Both
+share one orchestration path. Phase 8 (eval & hardening) is next. See the [roadmap](#roadmap).
+
+**Pythia is open source, Apache-2.0.** Public data deserves public tooling: the datasets this
+queries are published by Greek public bodies for anyone to use, and a tool that makes them
+usable should carry the same freedom. Apache-2.0 was chosen over MIT for its explicit patent
+grant, and over a copyleft licence so public bodies and newsrooms can adopt it without
+obligations that would put them off. Contributions are welcome under the same terms.
 
 ---
 
