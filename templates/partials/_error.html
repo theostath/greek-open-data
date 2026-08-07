@@ -1,0 +1,42 @@
+{#
+  "The publisher failed" and "Pythia failed" imply different next actions, so they are never
+  the same message. §5 of CLAUDE.md: the upstream API has no SLA, so publisher failure is an
+  expected outcome rather than a bug.
+#}
+<section class="notice notice-error" role="alert">
+  {% if blame == "origin" %}
+    <h2>Blocked</h2>
+    <p>That request came from another site. Questions can only be asked from this page.</p>
+
+  {% elif blame == "empty" %}
+    <h2>Nothing to ask</h2>
+    <p>Type a question first — a measure and a year is usually enough.</p>
+
+  {% elif blame == "too_long" %}
+    <h2>That question is too long</h2>
+    <p>Keep it under {{ detail }} characters. One question at a time works better than several
+      joined together.</p>
+
+  {% elif blame == "busy" %}
+    <h2>Busy right now</h2>
+    <p>
+      This runs a language model on one machine, so it answers a couple of questions at a
+      time. Wait for the current one to finish and ask again.
+    </p>
+
+  {% elif blame == "pipeline" %}
+    <h2>That question could not be completed</h2>
+    <p>
+      Something failed while answering — most often the publisher's own server, which has no
+      uptime guarantee and is frequently slow or down. Asking again often works.
+    </p>
+    {% if detail %}<p class="detail"><code>{{ detail }}</code></p>{% endif %}
+
+  {% else %}
+    <h2>Pythia failed</h2>
+    <p>
+      This one is ours, not the publisher's. The question was not answered and nothing partial
+      was shown, which is the intended behaviour: a half-computed figure is worse than none.
+    </p>
+  {% endif %}
+</section>

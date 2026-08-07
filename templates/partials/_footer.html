@@ -1,0 +1,59 @@
+{#
+  The signature component. Provenance sits INSIDE the answer, bound to the figure it licenses
+  — never below it as fine print.
+
+  Freshness is rendered as the sentence footer.py already writes, plus a four-step indicator in
+  neutral ink. Colour never carries the meaning: a yellow dot is deniable, a sentence is not,
+  and hue alone fails colourblind readers.
+#}
+<section class="provenance">
+  <h3 class="visually-hidden">Source</h3>
+
+  <dl>
+    <div class="prov-row">
+      <dt>Dataset</dt>
+      <dd><a href="{{ view.footer.dataset_url }}" dir="auto">{{ view.footer.dataset_title }}</a></dd>
+    </div>
+    <div class="prov-row">
+      <dt>Publisher</dt>
+      <dd dir="auto">{{ view.footer.publisher }}</dd>
+    </div>
+    <div class="prov-row">
+      <dt>Updated</dt>
+      <dd>
+        {# Neutral ink, and aria-hidden: the sentence beside it is the accessible statement.
+           Both come from footer.py's thresholds, so they cannot disagree. #}
+        {% if view.staleness_step %}
+        <span class="staleness" aria-hidden="true">
+          {% for step in range(1, 5) %}
+          <span class="step{% if step <= view.staleness_step %} on{% endif %}"></span>
+          {% endfor %}
+        </span>
+        {% endif %}
+        {{ view.footer.last_updated }} — {{ view.footer.staleness }}
+      </dd>
+    </div>
+    <div class="prov-row">
+      <dt>Coverage</dt>
+      <dd>
+        {{ view.footer.row_coverage }}
+        {% if not view.footer.complete %}
+          <strong class="incomplete">Only part of the resource was read, so this is a lower
+            bound rather than a total.</strong>
+        {% endif %}
+        {% if view.footer.observed_range %}
+          <span class="range">Observed {{ view.footer.observed_range[0] }} to
+            {{ view.footer.observed_range[1] }}.</span>
+        {% endif %}
+      </dd>
+    </div>
+    <div class="prov-row">
+      <dt>Resource</dt>
+      <dd>
+        {{ view.footer.resource_format }} ·
+        retrieved {{ view.footer.fetched_at }} ·
+        <a href="{{ view.footer.source_url }}" rel="nofollow noopener">file</a>
+      </dd>
+    </div>
+  </dl>
+</section>

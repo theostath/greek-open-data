@@ -1,0 +1,29 @@
+{#
+  A restart and an expiry are different events and get different sentences. make dev runs
+  --reload, so a file save wipes every job — telling the user their result "expired after 15
+  minutes" when the server restarted two seconds ago would simply be untrue.
+#}
+<section class="notice" role="status">
+  {% if reason.value == "restarted" %}
+    <h2>The server restarted</h2>
+    <p>Results are held in memory only, so restarting clears them. Nothing was wrong with your
+      question.</p>
+
+  {% elif reason.value == "expired" %}
+    <h2>That result has expired</h2>
+    <p>Answers are kept for 15 minutes and then dropped. Ask again to recompute it.</p>
+
+  {% else %}
+    <h2>No such result</h2>
+    <p>That link does not point at anything this server has. Check it, or just ask the
+      question again.</p>
+  {% endif %}
+
+  {% if question %}
+  <p class="reask">
+    <button type="button" class="example" data-question="{{ question }}">
+      Ask it again
+    </button>
+  </p>
+  {% endif %}
+</section>

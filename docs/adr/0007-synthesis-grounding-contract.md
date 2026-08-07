@@ -153,6 +153,13 @@ Alternatives considered and rejected:
   opaquely. Resolving them against an ELSTAT/Eurostat codelist is real future work; inventing
   meanings is not.
 
+## Amendment (2026-08-06, Phase 7)
+
+**A refusal keeps provenance it has already resolved.** The "no rows match the question" path
+built a `Footer` and then discarded it; `Answer`'s invariant forbids facts and charts on a
+refusal, not provenance. `_refuse` now takes an optional `footer`, passed only on that path —
+every other refusal refused before fetching anything and so has none to state.
+
 ## Amendments to ADR-0006
 
 1. **`TableData` gains `header_trusted`** (no default, like `complete`). See the amendment note

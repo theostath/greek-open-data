@@ -1,0 +1,363 @@
+/*
+  Pythia — the reference desk.
+
+  Light by scene, not by default: a journalist at 16:40, in daylight, with the CMS in the next
+  tab, copying a figure into a story that files at 18:00.
+
+  Restrained colour. One amber accent marks what you can act on and what the system chose;
+  neutrals sit at chroma 0 so a warm accent never lands on a warm surface. Freshness and
+  coverage are stated in words — hue never carries meaning here.
+*/
+
+:root {
+  /* Surface is literally #ffffff. Not cream, not sand: the accent is the warmth. */
+  --bg: oklch(1 0 0);
+  --surface-sunken: oklch(0.975 0 0);
+
+  /* Ink clears 4.5:1 with room to spare. Quiet ink is smaller and calmer, never lighter
+     than legible — it is held to the same 4.5:1 as body text, as is the placeholder. */
+  --ink: oklch(0.24 0 0);
+  --ink-quiet: oklch(0.46 0 0);
+  --rule: oklch(0.90 0 0);
+  --rule-strong: oklch(0.80 0 0);
+
+  /* The accent is a verb: actions, the current selection, focus. Never a data value, never a
+     chart series, never a section marker. Target <=10% of any screen.
+
+     DESIGN.md anchors this at oklch(0.700 0.130 60) and leaves the ramp "to be resolved
+     during implementation". Resolved here at L=0.660: the anchor measures 2.76:1 against
+     white, and WCAG 2.2 1.4.11 needs 3:1 for a focus ring and for a control's own boundary.
+     L=0.660 measures 3.10:1. Hue and chroma are unchanged, so the ±10° hue rule holds. */
+  --accent: oklch(0.660 0.130 60);
+  --accent-hover: oklch(0.610 0.135 60);
+  --accent-ink: oklch(0.20 0.03 60);
+  --accent-wash: oklch(0.972 0.020 60);
+
+  /* A form control's visible boundary is non-text contrast (1.4.11), so it needs 3:1 —
+     --rule-strong at 1.87:1 is fine for a decorative divider and not for this. */
+  --control-border: oklch(0.66 0 0);
+
+  --measure: 68ch;
+  --step--1: 0.875rem;
+  --step-0: 1rem;
+  --step-1: 1.125rem;
+  --step-2: 1.383rem;
+  --step-3: 1.65rem;
+  --step-4: 2rem;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4.5rem;
+
+  --radius: 4px;
+  --motion: 180ms;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1); /* ease-out-quart: no bounce, no elastic */
+
+  /* One humanist sans, carrying full Greek including accented capitals and final sigma.
+     A system stack, because local-first forbids fetching a webfont — and a mono face would
+     render a Greek publisher name in fallback glyphs, which reads as corrupted data. */
+  --font: system-ui, -apple-system, "Segoe UI", "Noto Sans", Roboto, "Helvetica Neue",
+          Arial, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: var(--step-0);
+  line-height: 1.55;
+  padding: var(--space-6) var(--space-5) var(--space-8);
+}
+
+main, .masthead, .colophon { max-width: var(--measure); margin-inline: auto; }
+
+h1, h2, h3 { line-height: 1.25; text-wrap: balance; margin: 0 0 var(--space-3); }
+h1 { font-size: var(--step-4); letter-spacing: -0.02em; }
+h2 { font-size: var(--step-2); letter-spacing: -0.01em; }
+h3 { font-size: var(--step-1); }
+p { margin: 0 0 var(--space-4); text-wrap: pretty; }
+a { color: var(--ink); text-underline-offset: 0.2em; text-decoration-thickness: 1px; }
+a:hover { text-decoration-color: var(--accent); }
+
+/* Every figure is tabular so a column can be scanned, not decoded one line at a time. */
+.num, .facts td, .progress-elapsed .num, .staleness { font-variant-numeric: tabular-nums; }
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+.skip {
+  position: absolute; left: -9999px; top: var(--space-2);
+  background: var(--bg); padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--accent); border-radius: var(--radius);
+}
+.skip:focus { left: var(--space-4); z-index: 10; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ---- Masthead ---------------------------------------------------------- */
+
+.masthead { margin-bottom: var(--space-6); }
+.wordmark {
+  display: inline-block; font-size: var(--step-1); font-weight: 620;
+  letter-spacing: -0.01em; text-decoration: none; margin-bottom: var(--space-2);
+}
+.standfirst { color: var(--ink-quiet); font-size: var(--step--1); max-width: 58ch; margin: 0; }
+
+/* ---- Ask --------------------------------------------------------------- */
+
+.ask { margin-bottom: var(--space-6); }
+.ask-label { display: block; font-size: var(--step--1); margin-bottom: var(--space-2); }
+.ask-row { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+.ask input {
+  flex: 1 1 22ch;
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg);
+  padding: var(--space-3);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  transition: border-color var(--motion) var(--ease);
+}
+.ask input::placeholder { color: var(--ink-quiet); opacity: 1; }
+.ask input:hover { border-color: var(--ink-quiet); }
+.ask input:focus-visible { border-color: var(--accent); outline-offset: 1px; }
+
+button {
+  font: inherit;
+  font-weight: 560;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-5);
+  cursor: pointer;
+  transition: background-color var(--motion) var(--ease);
+}
+button:hover { background: var(--accent-hover); }
+button:active { transform: translateY(1px); }
+button[disabled], button[aria-busy="true"] { opacity: 0.55; cursor: progress; }
+
+.ask-hint { color: var(--ink-quiet); font-size: var(--step--1); margin: var(--space-2) 0 0; }
+
+/* ---- Empty state ------------------------------------------------------- */
+
+.empty h2 { font-size: var(--step-1); }
+.empty h3 {
+  font-size: var(--step-0); font-weight: 600;
+  margin-top: var(--space-6); margin-bottom: var(--space-3);
+}
+.lede { color: var(--ink-quiet); }
+
+.examples, .plain { list-style: none; padding: 0; margin: 0; }
+.examples li { margin-bottom: var(--space-2); }
+
+/* Example and re-ask controls are secondary: same shape as the primary button, quieter fill,
+   so the vocabulary stays consistent without competing with Ask. */
+.example {
+  background: var(--bg);
+  color: var(--ink);
+  border-color: var(--control-border);
+  text-align: start;
+  padding: var(--space-2) var(--space-3);
+  font-weight: 400;
+}
+.example:hover { background: var(--accent-wash); border-color: var(--accent); }
+
+.plain li {
+  color: var(--ink-quiet); font-size: var(--step--1);
+  padding-block: var(--space-2); border-top: 1px solid var(--rule);
+}
+
+.health {
+  margin-top: var(--space-6); padding: var(--space-3);
+  border: 1px solid var(--rule-strong); border-radius: var(--radius);
+  font-size: var(--step--1);
+}
+
+/* ---- Progress ---------------------------------------------------------- */
+
+.progress { padding-block: var(--space-4); }
+.progress-head { font-size: var(--step-1); margin-bottom: var(--space-2); }
+.progress-detail { color: var(--ink-quiet); font-size: var(--step--1); max-width: 58ch; }
+
+/* Skeleton content, not a centred spinner: it shows the shape of what is coming. */
+.skeleton { display: grid; gap: var(--space-3); margin-block: var(--space-5); }
+.sk { display: block; background: var(--surface-sunken); border-radius: var(--radius); }
+.sk-line { height: 1rem; }
+.sk-short { width: 62%; }
+.sk-block { height: 5.5rem; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .sk { animation: pulse 1.6s var(--ease) infinite; }
+  @keyframes pulse { 50% { background: oklch(0.94 0 0); } }
+}
+
+.progress-elapsed { color: var(--ink-quiet); font-size: var(--step--1); margin: 0; }
+.progress-note { display: block; }
+
+/* ---- Answer ------------------------------------------------------------ */
+
+.answer, .refusal { padding-top: var(--space-4); border-top: 1px solid var(--rule); }
+
+.claim {
+  font-size: var(--step-2);
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  max-width: 60ch;
+}
+
+/* Caveats limit what may be said, so they sit at the claim and are never collapsed. */
+.caveats { list-style: none; padding: 0; margin: 0 0 var(--space-5); }
+.caveats li {
+  font-size: var(--step--1);
+  padding: var(--space-2) 0 var(--space-2) var(--space-5);
+  border-top: 1px solid var(--rule);
+  position: relative;
+}
+.caveats li::before {
+  content: "!"; position: absolute; left: 0; top: var(--space-2);
+  width: 1.1rem; height: 1.1rem; line-height: 1.1rem; text-align: center;
+  font-size: 0.7rem; font-weight: 700;
+  border: 1px solid var(--rule-strong); border-radius: 50%;
+  color: var(--ink-quiet);
+}
+
+.facts { border-collapse: collapse; width: 100%; margin-bottom: var(--space-5); }
+.facts caption { text-align: start; }
+.facts th, .facts td {
+  text-align: start; padding: var(--space-2) var(--space-3) var(--space-2) 0;
+  border-top: 1px solid var(--rule); vertical-align: baseline;
+}
+.facts thead th {
+  font-size: var(--step--1); font-weight: 600; color: var(--ink-quiet);
+  border-top: none; border-bottom: 1px solid var(--rule-strong);
+}
+.facts tbody th { font-weight: 500; }
+.facts td.num { font-weight: 600; white-space: nowrap; }
+.facts .basis { color: var(--ink-quiet); font-size: var(--step--1); }
+
+.seams { list-style: none; padding: 0; margin: 0 0 var(--space-5); }
+.seams li {
+  font-size: var(--step--1); color: var(--ink-quiet);
+  padding-block: var(--space-2); border-top: 1px dashed var(--rule-strong);
+}
+
+/* ---- Provenance: the signature component ------------------------------- */
+
+.provenance {
+  background: var(--surface-sunken);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  margin-bottom: var(--space-5);
+  font-size: var(--step--1);
+}
+.provenance dl { margin: 0; display: grid; gap: var(--space-2); }
+.prov-row { display: grid; grid-template-columns: 7.5rem 1fr; gap: var(--space-3); }
+.provenance dt { color: var(--ink-quiet); }
+.provenance dd { margin: 0; }
+.provenance .quiet, .range { color: var(--ink-quiet); }
+.incomplete { display: block; font-weight: 600; }
+
+/* Four neutral steps. The sentence beside them is the accessible statement; both come from
+   footer.py's thresholds so they cannot disagree. */
+.staleness { display: inline-flex; gap: 2px; margin-right: var(--space-2); vertical-align: 1px; }
+.step {
+  width: 6px; height: 10px; border-radius: 1px;
+  border: 1px solid var(--rule-strong); background: transparent;
+}
+.step.on { background: var(--ink-quiet); border-color: var(--ink-quiet); }
+
+@media (max-width: 34rem) {
+  .prov-row { grid-template-columns: 1fr; gap: var(--space-1); }
+  .provenance dt { font-size: 0.8125rem; }
+}
+
+/* ---- Chart ------------------------------------------------------------- */
+
+.chart { margin: 0 0 var(--space-6); }
+.vega-target { overflow-x: auto; }
+.chart figcaption {
+  display: grid; gap: var(--space-1);
+  font-size: var(--step--1); color: var(--ink-quiet);
+  padding-top: var(--space-2); border-top: 1px solid var(--rule);
+}
+.chart-title { color: var(--ink); font-weight: 600; }
+.chart-fallback { font-size: var(--step--1); }
+
+/* ---- Refusal ----------------------------------------------------------- */
+
+.refusal h2 { max-width: 24ch; }
+.refusal .claim { font-size: var(--step-1); color: var(--ink-quiet); }
+.matched { font-size: var(--step-0); }
+.next { color: var(--ink-quiet); font-size: var(--step--1); max-width: 60ch; }
+
+.searched { font-size: var(--step--1); }
+.term {
+  background: var(--accent-wash);
+  border-bottom: 1px solid var(--accent);
+  padding: 0.1em 0.3em;
+}
+
+.near-misses h3 { font-size: var(--step-0); font-weight: 600; margin-bottom: var(--space-2); }
+.near-misses ul { list-style: none; padding: 0; margin: 0 0 var(--space-5); }
+.near-misses li { padding-block: var(--space-2); border-top: 1px solid var(--rule); }
+
+.formats { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: baseline; }
+.fmt {
+  font-size: var(--step--1); padding: 0.1em 0.45em;
+  border: 1px solid var(--rule-strong); border-radius: var(--radius);
+}
+
+.reask { margin-top: var(--space-5); }
+
+/* ---- Notices ----------------------------------------------------------- */
+
+.notice {
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  padding: var(--space-5);
+}
+.notice h2 { font-size: var(--step-1); }
+.notice p { margin-bottom: var(--space-3); }
+.notice p:last-child { margin-bottom: 0; }
+.notice .detail code {
+  font-size: 0.8125rem; color: var(--ink-quiet);
+  overflow-wrap: anywhere;
+}
+
+/* ---- Colophon ---------------------------------------------------------- */
+
+.colophon {
+  margin-top: var(--space-8); padding-top: var(--space-4);
+  border-top: 1px solid var(--rule);
+  color: var(--ink-quiet); font-size: var(--step--1);
+}
+.colophon p { margin: 0; }
+
+/* Flat at rest; every transition has a reduced-motion alternative. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  button:active { transform: none; }
+}

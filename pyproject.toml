@@ -12,12 +12,21 @@ dependencies = [
     "chromadb>=0.5",
     "truststore>=0.9",
     "pyyaml>=6.0",
+    "fastapi>=0.141.1",
+    "uvicorn[standard]>=0.48.0",
+    "jinja2>=3.1.6",
+    "python-multipart>=0.0.32",
 ]
 
+[project.scripts]
+# `uv run pythia-dev` starts the app with a readable preflight. Exists because `make` is not
+# available on every dev box here, and the Makefile target is a one-line wrapper around this.
+pythia-dev = "pythia.api.dev:main"
+
 [tool.uv]
-# This environment terminates TLS with a custom root CA (corporate proxy);
-# use the OS trust store so uv can reach PyPI.
-native-tls = true
+# This environment terminates TLS with a custom root CA (corporate proxy); use the OS trust
+# store so uv can reach PyPI. Renamed from `native-tls` in uv 0.11, which deprecated it.
+system-certs = true
 
 [dependency-groups]
 dev = [
@@ -41,6 +50,11 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency injection *is* a call in an argument default; B008 is a real warning
+# everywhere else, so the exemption is listed per-callable rather than disabling the rule.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Form", "fastapi.Query", "fastapi.Path"]
 
 [tool.mypy]
 python_version = "3.11"

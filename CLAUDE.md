@@ -131,12 +131,18 @@ If you believe a swap is warranted, write a 3-line ADR in `docs/adr/` and procee
 │   │   ├── lexicon.py           # versioned Greek/English word lists
 │   │   ├── models.py            # Answer/Fact/Binding contract
 │   │   └── prompts/             # narrate.md — the ONLY synthesis prompt
-│   ├── api/                     # Phase 7: FastAPI routes — NOT YET CREATED
+│   ├── api/                     # Phase 7: the interface (ADR-0008)
+│   │   ├── app.py               # FastAPI app, lifespan, routes, Origin check, CSP
+│   │   ├── service.py           # Pipeline + RecoveryContext — the ONE orchestration path
+│   │   ├── jobs.py              # bounded, TTL-evicting, thread-safe JobStore
+│   │   └── view.py              # AnswerView: the publish whitelist (plan never ships)
 │   └── eval/                    # Phase 3+: golden set + scoring
 │       ├── golden_questions.yaml
 │       └── run_eval.py
-├── templates/                   # Jinja2 + HTMX — NOT YET CREATED (Phase 7)
-├── static/                      # NOT YET CREATED (Phase 7)
+├── templates/                   # Jinja2 + HTMX (Phase 7)
+│   └── partials/                # _ask, _progress, _result, _answer, _refusal, _footer,
+│                                # _chart, _error, _expired
+├── static/                      # app.css, app.js, vendor/ (htmx + vega, hash-pinned)
 └── docs/
     ├── api_findings.md          # OUTPUT of Phase 1 — the source of truth for endpoints
     ├── api_probe_raw.md         # raw probe evidence behind api_findings.md
@@ -210,12 +216,20 @@ make fetch RESOURCE_ID=<id>   # Phase 5: fetch one resource -> typed table
 make cache-purge  # drop access-cache rows past the TTL ceiling
 make answer QUESTION="..."    # Phase 6: grounded answer + chart + footer
                               # (add RESOURCE_ID=<id> to bypass retrieval)
-make dev          # uvicorn with reload — stub until Phase 7
+make dev          # Phase 7: preflight, serve on 127.0.0.1:8000, open a browser
 make check        # ruff + mypy + pytest — the gate in §9
 ```
 
 Every target is a one-line `uv run` wrapper; run those directly when `make` is unavailable
-(see the Makefile). **Run pytest from the repo root** — `pyproject` sets `pythonpath = ["."]`,
+(see the Makefile). **`make` is not installed on the current dev box**, so in practice:
+
+```bash
+uv run pythia-dev          # == make dev. Preflights the catalogue, index and Ollama first,
+                           # names the fix for whatever is missing, then serves and opens a
+                           # browser once the port is actually accepting (the ~2.2 GB model
+                           # load means that is 30–60 s after launch, not immediately).
+                           # --no-browser / --no-reload / --skip-preflight when scripting.
+``` **Run pytest from the repo root** — `pyproject` sets `pythonpath = ["."]`,
 which is what lets tests import both `pythia.*` and `tests.synthesis_fixtures`.
 
 ```bash
@@ -302,8 +316,45 @@ Status legend: [ ] not started · [~] in progress · [x] done
       `BASE_PER`/`Arithmese`/`areaid` are `number` but not measures. **335 tests green**,
       including a guard-recall eval (14 adversarial narrations, all rejected) that runs inside
       `make check`. Run with `make answer QUESTION="..."`.
-- [ ] **Phase 7 — Interface:** FastAPI + HTMX chat.
+- [x] **Phase 7 — Interface:** one FastAPI process serving Jinja2 + HTMX (**ADR-0008**, which
+      reverses `plan.md`'s June Vercel direction change — local-first won). `make dev` →
+      `127.0.0.1:8000`. **`Pipeline` (`api/service.py`) is the single orchestration path**,
+      shared by the CLI and the web app; ADR-0004 is the argument for that. Questions run on a
+      bounded pool (`api_max_concurrent_jobs=2`) and the browser polls; the terminal fragment
+      stops polling by omitting `hx-trigger`. `api/view.py` is a **publish whitelist** — a
+      field added to `QueryPlan` later is invisible by default, and `Answer.plan` never
+      reaches the browser. **Three refusal shapes, not two:** a `MATCHED` plan that still
+      refuses is never framed as a near miss, guarded in *both* `build_recovery_context` and
+      `to_view`. Provenance renders inside the answer, before the chart, so the quotable unit
+      never scrolls away from its citation. Job ids carry a process epoch, so a lost result
+      says "restarted" rather than the untrue "expired". Security: an **Origin check** (a
+      loopback bind is not an access control) plus CSP/nosniff/no-referrer; assets vendored
+      and **hash-asserted in the suite**; **WCAG contrast is measured, not asserted** — the
+      DESIGN.md accent anchor failed 1.4.11 at 2.76:1 and the ramp was resolved at L=0.660.
+      **450 tests green.** Verified live: `/healthz` reads 21,806/21,806/21,806 with the LLM
+      reachable, cross-origin POST → 403, a real Greek question end-to-end in 40 s. Start it
+      with **`uv run pythia-dev`** (`make` is not installed on the primary dev box).
 - [ ] **Phase 8 — Eval & hardening:** retrieval metrics, honesty checks, observability.
+
+**Queued between Phase 7 and Phase 8 — discuss before building** (detail in `REPO_REPORT.md`
+Part 3, which is untracked; issue links below survive it):
+
+- **Guided exploration by publisher, place and theme — issue #18.** A catalogue probe showed
+  `spatial_text` is unusable (7,600 of 9,101 populated rows just say `Ελλάδα`) and free-text
+  place matching is *misleading* (Ιωάννινα → 0 datasets, while Δήμος Ιωαννιτών publishes
+  plenty). **Geography lives in `org_title`:** Δήμος Χανίων has 2,228 datasets against 86
+  text mentions of Χανιά. Browse must be deterministic SQL over publisher/theme, filtered to
+  the 24.4% of datasets with a CSV/JSON resource, handing off via `resource_id` — which
+  **bypasses retrieval**, the measured ceiling (R@1 0.46). Do **not** route a "what data do you
+  have from X?" question through `answer_question`: it is a catalogue question, not a data
+  question, and `make_plan` would return `no_match`.
+- **LLM chart tooling / Highcharts — no issue yet, framing unsettled.** Two blockers before
+  any code: Highcharts is **proprietary for commercial use** (Vega/Vega-Lite are BSD), and more
+  importantly a tool that lets the model **emit chart specs** would put it back in contact with
+  the numbers and route around `validate_spec` — breaking ADR-0007's central property and
+  Principle #1 with it. The contract-preserving version has the LLM pick a chart *kind* from an
+  enum while `chart.py` still builds and validates the spec. Needs `/spec` + the judge panel +
+  an ADR, since it supersedes part of ADR-0007.
 
 **Always work the lowest unchecked phase unless told otherwise.** Update this section when a
 phase completes.
@@ -320,12 +371,29 @@ secrets leaked; and any new external-API assumption is reflected in `docs/api_fi
 
 ## 10. Open questions (resolve as you learn; don't block on them silently)
 
-- Is the relaunched catalog CKAN, and does it expose full per-resource schema?
-- Does the data API still use the legacy token + `query/{dataset}` pattern post-relaunch?
-- Which datasets are tabular-and-fresh enough to be the demo set for Phase 6?
+- ~~Is the relaunched catalog CKAN, and does it expose full per-resource schema?~~ **Resolved
+  (Phase 1):** CKAN **2.11.3**, Action API. Per-resource schema only for the ~1% of resources
+  in the DataStore; for the rest the declared format is all there is — and ADR-0006 records it
+  being observably wrong, which is why `access/detect.py` sniffs magic bytes.
+- ~~Does the data API still use the legacy token + `query/{dataset}` pattern post-relaunch?~~
+  **Resolved (Phase 1):** **gone (404).** Data is per-resource, via `datastore_search` or a
+  file download (302 → short-lived Azure Blob, the common case). Reads are anonymous;
+  `DATA_GOV_GR_TOKEN` is an unused defensive placeholder.
+- ~~Which datasets are tabular-and-fresh enough to be the demo set?~~ **Resolved (Phases 6–7):**
+  Phase 6 was designed against four live-probed resources; Phase 7's empty-state examples are
+  three questions **verified live to return ANSWERED** (`api/app.py::EXAMPLES`). **Re-verify
+  those after any retrieval change** — R@1 is what decides them, and one of the three
+  originally chosen turned out to refuse.
 - ~~Embedding strategy: title+description only, or include column/field names?~~ **Resolved
   (Phase 3):** embed `title + notes + tags` plus their English translations (the `embed_text`
   column); per-resource field names deferred — revisit if eval shows a gap.
+
+Still genuinely open:
+
+- **Does guided browsing beat better retrieval?** R@1 is 0.46 and issue #18 routes *around*
+  retrieval rather than improving it. Both are worth doing; which pays back sooner is untested.
+- **Can the LLM be given chart control without breaking ADR-0007?** See §8's queued note — the
+  enum-only version preserves the contract, the spec-emitting version does not.
 
 ---
 
