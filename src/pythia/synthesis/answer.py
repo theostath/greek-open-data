@@ -106,7 +106,11 @@ def answer_question(
     if facts.operation is not Operation.LISTING:
         chart = chart_mod.build_spec(
             facts, title=foot.dataset_title, caveat=limitation,
-            complete=table.complete, label=binding.dimension or "", settings=cfg,
+            complete=table.complete, label=binding.dimension or "",
+            # The authoritative temporal signal. Without it build_spec falls back to a
+            # prefix heuristic on a dimension value, which mistook year-like categories
+            # for a time series and real dates in other formats for categories.
+            temporal_column=binding.temporal, settings=cfg,
         )
 
     text, degraded, rejected = _narrate(
