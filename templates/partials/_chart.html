@@ -3,12 +3,14 @@
   publisher-controlled series label cannot break out of the script element, and the value is
   not double-escaped either. Never |safe here.
 
-  The spec is delivered as application/json data, not as executable code, which is what lets
-  script-src stay 'self' with no 'unsafe-inline'.
+  The option is delivered as application/json data, not as executable code, which is what lets
+  script-src stay 'self' with no 'unsafe-inline'. It also means an ECharts option can never
+  carry a JavaScript function — `formatter`, `renderItem` and the rest simply cannot survive
+  JSON — though validate_spec refuses them by name regardless.
 #}
 <figure class="chart">
-  <script type="application/json" class="vega-spec">{{ view.chart|tojson }}</script>
-  <div class="vega-target" role="img"
+  <script type="application/json" class="chart-option">{{ view.chart|tojson }}</script>
+  <div class="chart-target" role="img"
        aria-label="Chart: {{ view.chart_title }}. The figures it plots are listed in the table above."></div>
 
   <figcaption>

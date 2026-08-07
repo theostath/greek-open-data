@@ -160,7 +160,7 @@ retained as `datasets_tombstoned` and can be deleted once the new one is trusted
   (disabled).
 
 ### Phase 6 — Synthesis (`src/pythia/synthesis/answer.py`)
-- Grounded answer + Vega-Lite chart spec + freshness/provenance footer (source dataset,
+- Grounded answer + chart option + freshness/provenance footer (source dataset,
   publisher, `last_updated`). Grounded-or-silent: never fabricate; "no dataset covers this"
   is a valid answer. **Synthesis LLM = local Qwen via Ollama** (see Direction changes).
 

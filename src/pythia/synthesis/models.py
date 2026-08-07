@@ -170,9 +170,14 @@ class FactTable:
 
 @dataclass(frozen=True)
 class ChartSpec:
-    """A validated Vega-Lite v5 spec. ``None`` is a legitimate outcome; a fake chart is not."""
+    """A validated Apache ECharts option. ``None`` is a legitimate outcome; a fake chart is not.
 
-    vega_lite: dict[str, Any]
+    ``option`` is the renderer's own term and is deliberately not neutralised: the dict holds
+    ECharts-specific keys, and a renderer-agnostic name would claim a portability this does
+    not have.
+    """
+
+    option: dict[str, Any]
     kind: ChartKind
     title: str
     caveat: str | None = None

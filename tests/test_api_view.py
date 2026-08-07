@@ -44,7 +44,7 @@ def test_the_chart_is_the_exact_validated_dict_not_a_reserialisation() -> None:
 
     view = _view(answer)
 
-    assert view.chart is answer.chart.vega_lite, "must be the same object, not a copy"
+    assert view.chart is answer.chart.option, "must be the same object, not a copy"
 
 
 def test_no_chart_is_a_legitimate_view_state() -> None:

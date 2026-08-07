@@ -50,7 +50,7 @@ dataset, publisher, and `last_updated`.
 | Retrieval | Dense + BM25 (SQLite FTS5) hybrid, RRF fusion, optional reranker — see [ADRs](docs/adr/) |
 | LLM | Local **Qwen via Ollama** — no API key, no egress ([ADR-0004](docs/adr/0004-llm-provider-ollama-qwen.md)); model id in config, not hardcoded |
 | HTTP | httpx (async) + tenacity retries |
-| Charts | Vega-Lite JSON specs, rendered client-side |
+| Charts | Apache ECharts option objects, rendered client-side (ADR-0009) |
 | Quality | pytest · ruff · mypy |
 
 Local-first and reproducible: the MVP runs entirely on a laptop with no managed services.
@@ -165,7 +165,7 @@ All of these are **local build artifacts** (gitignored) — regenerate them with
       Greeklish→Greek normalization, local Qwen via Ollama, grounded-or-silent refusal.
 - [x] **Phase 5** — Access: resilient data client + cache + schema sniffing
       (`make fetch RESOURCE_ID=<id>`).
-- [x] **Phase 6** — Synthesis: grounded answer + Vega-Lite chart + freshness footer
+- [x] **Phase 6** — Synthesis: grounded answer + chart + freshness footer
       (`make answer QUESTION="..."`). The LLM never emits a quantity and never sees the
       table; a claim guard rejects any figure, magnitude-word, trend or superlative the
       computed facts do not license (ADR-0007).

@@ -3,7 +3,7 @@
 ADR-0006 measured that 4,671 of 6,154 fetchable CSV/JSON resources (75%) are hosted off-portal
 on ~51 mostly-municipal servers. Cell values and header strings are therefore
 publisher-controlled text of arbitrary length, and Phase 6 puts derived strings into an LLM
-prompt and into a Vega-Lite document a browser will render.
+prompt and into a chart option a browser will render.
 """
 
 from __future__ import annotations
@@ -79,11 +79,18 @@ def test_injected_url_never_survives_into_the_answer() -> None:
 
 
 def test_hostile_labels_still_produce_a_safe_chart() -> None:
-    """Untrusted strings may reach a title, never a field name or a data key."""
+    """Untrusted strings may reach a label, never an accessor or an executable option."""
     answer = answer_question("ερώτηση", plan(), hostile_table())
+
     assert answer.chart is not None
-    validate_spec(answer.chart.vega_lite)
-    assert answer.chart.vega_lite["encoding"]["x"]["field"] == "dim"
+    validate_spec(answer.chart.option)
+    # Categories are inert strings on the axis and values are plain scalars, so nothing
+    # publisher-supplied is ever read as a key or a function.
+    assert isinstance(answer.chart.option["xAxis"]["data"], list)
+    assert all(
+        isinstance(value, int | float | type(None))
+        for value in answer.chart.option["series"][0]["data"]
+    )
 
 
 def test_oversized_cell_does_not_reach_the_prompt_unbounded() -> None:

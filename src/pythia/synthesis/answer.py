@@ -365,8 +365,8 @@ def main(argv: list[str] | None = None) -> int:
     if answer.footer:
         print(f"\nSource: {answer.footer.dataset_url}  ({answer.footer.row_coverage})")
     if answer.chart:
-        print("\nVega-Lite:")
-        print(json.dumps(answer.chart.vega_lite, ensure_ascii=False, indent=2))
+        print("\nECharts option:")
+        print(json.dumps(answer.chart.option, ensure_ascii=False, indent=2))
     return 0
 
 

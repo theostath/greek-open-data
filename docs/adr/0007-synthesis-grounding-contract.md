@@ -80,7 +80,7 @@ under a footnote, which every reader takes as the figure for the year they asked
 **8. Charts are chosen deterministically and validated before release.**
 Shape decides the chart, never the model. Untrusted strings never become field references or
 data keys: rows carry the fixed synthetic `dim`/`value`/`series`, and human labels reach only
-titles, which the Vega runtime escapes. `chart.validate_spec` walks the document and rejects
+titles, which the renderer escapes. `chart.validate_spec` walks the document and rejects
 any `url`, `signal`, `expr`, `datasets`, `params`, `calculate` or `transform` key at any depth,
 so "we do not emit expressions" is enforced rather than intended. Encoding types come from the
 **coerced** kind, not `Column.type` — the latter is inferred from 200 uncoerced rows, so the
@@ -146,12 +146,20 @@ Alternatives considered and rejected:
   `synthesis_deadline_s` (45 s) bound it, deliberately below the planner's 120 s, because
   `OllamaClient` retries 5xx three times and Phase 7 will call this from a request handler.
 - **Phase 7 rendering contract.** `Answer.text` is plain text and MUST be HTML-escaped. The
-  Vega-Lite JSON MUST be delivered with `</` escaped, never through `|safe`, and embedded with
+  chart option JSON MUST be delivered with `</` escaped, never through `|safe`, and embedded with
   external loading disabled. The JSON encoder is an explicit field allowlist: `Answer.plan`
   carries the ranked retrieval shortlist with RRF scores and must not reach the browser.
 - **Codelists remain unresolved.** SDMX codes have no in-payload labels, so they are shown
   opaquely. Resolving them against an ELSTAT/Eurostat codelist is real future work; inventing
   meanings is not.
+
+## Amendment (2026-08-07, ADR-0009)
+
+**The renderer is Apache ECharts, not Vega-Lite.** The grounding contract is unchanged — the
+LLM still never touches the numbers and never chooses a chart — but the threat model this ADR
+describes moved: Vega-Lite's risk was expression-bearing keys, ECharts' is JavaScript
+functions (`formatter`, `renderItem`). See ADR-0009, including why Highcharts was ruled out on
+licence grounds.
 
 ## Amendment (2026-08-06, Phase 7)
 
