@@ -17,8 +17,9 @@ from decimal import Decimal
 
 from pythia.synthesis.lexicon import (
     MARKUP_PATTERNS,
+    MAXIMAL_WORDS,
+    MINIMAL_WORDS,
     NUMBER_WORDS,
-    SUPERLATIVE_WORDS,
     TREND_WORDS,
     fold,
 )
@@ -102,10 +103,16 @@ def check_claims(
                                       reason="magnitude written as a word")
 
     licensed = _licensed_claims(facts, complete)
-    for word in SUPERLATIVE_WORDS:
-        if word in folded and "superlative" not in licensed:
+    for word in MAXIMAL_WORDS:
+        if word in folded and "superlative_max" not in licensed:
             return VerificationResult(ok=False, rejected_tokens=[word],
                                       reason="superlative not licensed by the facts")
+    for word in MINIMAL_WORDS:
+        if word in folded and "superlative_min" not in licensed:
+            return VerificationResult(
+                ok=False, rejected_tokens=[word],
+                reason="claim about the smallest category, which the omitted tail hides",
+            )
     for word in TREND_WORDS:
         if word in folded and "trend" not in licensed:
             return VerificationResult(ok=False, rejected_tokens=[word],
@@ -178,8 +185,13 @@ def _licensed_claims(facts: FactTable | None, complete: bool) -> set[str]:
         return licensed
     if facts.truncation_is_categorical:
         return licensed
-    if facts.operation in {Operation.SUM, Operation.COUNT} and facts.omitted_categories == 0:
-        licensed.add("superlative")  # a complete ranking supports "the largest is X"
+    if facts.operation in {Operation.SUM, Operation.COUNT}:
+        # `compute` omits the ranking's tail, never an arbitrary slice, so the kept categories
+        # are the largest whatever `omitted_categories` says. The smallest is a different
+        # claim: it lives in the tail that was dropped, and only a complete ranking knows it.
+        licensed.add("superlative_max")
+        if facts.omitted_categories == 0:
+            licensed.add("superlative_min")
     if facts.operation is Operation.NONE and facts.series_field is None and len(facts.series) > 2:
         licensed.add("trend")  # one complete series supports describing its direction
     return licensed
