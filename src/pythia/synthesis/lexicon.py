@@ -122,12 +122,22 @@ TREND_WORDS: tuple[str, ...] = tuple(fold(word) for word in (
     "rose", "increase", "fell", "decrease", "decline", "growth", "trend", "stable", "surge",
 ))
 
-SUPERLATIVE_WORDS: tuple[str, ...] = tuple(fold(word) for word in (
-    "υψηλότερ", "χαμηλότερ", "μεγαλύτερ", "μικρότερ", "περισσότερ", "λιγότερ", "πρώτ",
-    "τελευταί", "κορυφαί", "μέγιστ", "ελάχιστ",
-    "highest", "lowest", "largest", "smallest", "most", "least", "top", "maximum", "minimum",
-    "first", "leading",
+#: Superlatives split by the end of the ranking they claim. ``compute`` keeps the top N
+#: categories by value and groups the rest, so the two ends are not equally knowable: the kept
+#: categories are provably the largest, while the smallest one is somewhere in the tail that
+#: was hidden. A guard that treated both alike had to reject either every ranking narration or
+#: a false one.
+MAXIMAL_WORDS: tuple[str, ...] = tuple(fold(word) for word in (
+    "υψηλότερ", "μεγαλύτερ", "περισσότερ", "πρώτ", "κορυφαί", "μέγιστ",
+    "highest", "largest", "most", "top", "maximum", "first", "leading",
 ))
+
+MINIMAL_WORDS: tuple[str, ...] = tuple(fold(word) for word in (
+    "χαμηλότερ", "μικρότερ", "λιγότερ", "τελευταί", "ελάχιστ",
+    "lowest", "smallest", "least", "minimum",
+))
+
+SUPERLATIVE_WORDS: tuple[str, ...] = MAXIMAL_WORDS + MINIMAL_WORDS
 
 #: Never legitimate in a narration built from a fact table.
 MARKUP_PATTERNS: tuple[re.Pattern[str], ...] = (

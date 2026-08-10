@@ -14,13 +14,18 @@ from pythia.synthesis.models import Fact, FactTable, Operation
 from pythia.synthesis.verify import check_claims
 
 
-def facts(*pairs: tuple[str, int], operation: Operation = Operation.SUM) -> FactTable:
+def facts(
+    *pairs: tuple[str, int], operation: Operation = Operation.SUM,
+    omitted_categories: int = 0, truncation_is_categorical: bool = False,
+) -> FactTable:
     """Build a fact table from label/value pairs."""
     return FactTable(
         facts=[Fact(label=label, value=Decimal(value), basis="b", n_used=4)
                for label, value in pairs],
         series=[{"dim": label, "value": Decimal(value)} for label, value in pairs],
         operation=operation, row_basis=4, dimension="Χώρα", measure="Πλήθος",
+        omitted_categories=omitted_categories,
+        truncation_is_categorical=truncation_is_categorical,
     )
 
 
@@ -81,6 +86,26 @@ def test_superlative_over_an_incomplete_table_is_rejected() -> None:
     """A ranking is a claim about data we did not fetch."""
     assert not check_claims("Η Αίγυπτος έχει τα περισσότερα αιτήματα.",
                             facts(("ΑΙΓΥΠΤΟΣ", 7547)), foot(), complete=False).ok
+
+
+def test_maximal_superlative_over_a_by_value_omission_is_allowed() -> None:
+    """`compute` omits the ranking's tail, so the kept categories are provably the largest."""
+    ranked = facts(("ΑΦΓΑΝΙΣΤΑΝ", 15296), ("ΑΙΓΥΠΤΟΣ", 9548), omitted_categories=75)
+    assert check_claims("Οι μεγαλύτερες κατηγορίες είναι ΑΦΓΑΝΙΣΤΑΝ και ΑΙΓΥΠΤΟΣ.",
+                        ranked, foot()).ok
+
+
+def test_minimal_superlative_over_a_by_value_omission_is_rejected() -> None:
+    """The tail is exactly what was hidden, so the smallest category is unknowable."""
+    ranked = facts(("ΑΦΓΑΝΙΣΤΑΝ", 15296), ("ΑΙΓΥΠΤΟΣ", 9548), omitted_categories=75)
+    assert not check_claims("Η μικρότερη κατηγορία είναι ΑΙΓΥΠΤΟΣ.", ranked, foot()).ok
+
+
+def test_maximal_superlative_over_a_categorically_truncated_table_is_rejected() -> None:
+    """Whole categories went unseen, so the visible ranking is not the real one."""
+    ranked = facts(("ΑΦΓΑΝΙΣΤΑΝ", 15296), omitted_categories=75,
+                   truncation_is_categorical=True)
+    assert not check_claims("Η μεγαλύτερη κατηγορία είναι ΑΦΓΑΝΙΣΤΑΝ.", ranked, foot()).ok
 
 
 def test_url_and_control_tokens_are_rejected() -> None:

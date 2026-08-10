@@ -39,7 +39,8 @@ chat template, so `<|im_end|><|im_start|>system` in a cell could forge a system 
 **2. The guard gates claims, not digits.**
 `verify.check_claims` rejects: a numeral absent from the fact set (exact token equality after
 language-pinned normalisation, never substring); a real figure attached to the wrong category;
-a magnitude written as a word; trend, comparison or superlative language that no fact licenses;
+a magnitude written as a word; trend, comparison or superlative language that no fact licenses
+(**superlatives are licensed by direction — see the 2026-08-07 amendment below**);
 markup, links and control tokens; and a narration that omits a supplied limitation. Numerals
 inside alphanumeric tokens are exempt so opaque SDMX codes like `BTE36` can be shown as
 required. Rejection degrades to the deterministic template — which renders the same facts — so
@@ -167,6 +168,39 @@ licence grounds.
 built a `Footer` and then discarded it; `Answer`'s invariant forbids facts and charts on a
 refusal, not provenance. `_refuse` now takes an optional `footer`, passed only on that path —
 every other refusal refused before fetching anything and so has none to state.
+
+## Amendment (2026-08-07, Phase 7)
+
+**Superlatives are licensed by direction, not all-or-nothing.** The original rule licensed a
+superlative only when `omitted_categories == 0`. That was measurably too strict: `compute`
+keeps the top `synthesis_max_categories` by value and groups the remainder into `Λοιπά`, so
+`omitted_categories > 0` is the *normal* state of a ranking, not a defect. "X ανά Y" over a
+long-tail categorical is the dominant question shape in this catalogue, so every ranked answer
+degraded to the template — on the asylum question, 75 of 101 categories are grouped and the
+guard rejected `μεγαλύτερ` every time.
+
+Worse, the rule disagreed with its own fallback: `narrate.render_template` hard-codes "οι
+μεγαλύτερες κατηγορίες είναι" / "the largest categories are" for every SUM/COUNT, and the
+template is returned from `_narrate` **without** passing through `check_claims`. The same
+sentence was forbidden to the model and guaranteed in its replacement.
+
+The two ends of a ranking are not equally knowable, so the lexicon splits:
+
+- `MAXIMAL_WORDS` (μεγαλύτερ, υψηλότερ, most, top, …) — licensed for SUM/COUNT whatever
+  `omitted_categories` says. The omission is `sorted(..., reverse=True)[N:]`, never an
+  arbitrary slice, so the kept categories are the largest **by construction**.
+- `MINIMAL_WORDS` (μικρότερ, χαμηλότερ, least, minimum, …) — licensed only when
+  `omitted_categories == 0`. The smallest category lives in precisely the tail that was
+  dropped, so claiming it over a truncated ranking is false, not merely unproven.
+
+The prior gates are untouched and still bound both directions: `complete=False`,
+`truncated_range` and `truncation_is_categorical` license nothing. That last one matters —
+it is what keeps "largest by construction" true, since a fetch that cut whole unseen
+categories makes the visible ranking not the real one.
+
+**Known residual.** `render_template` still asserts its maximal superlative even when the
+table is incomplete or categorically truncated, where the guard would reject it. The template
+never passes through `check_claims`, so this is unguarded by design. Not addressed here.
 
 ## Amendments to ADR-0006
 
