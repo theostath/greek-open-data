@@ -8,6 +8,7 @@ hashes are asserted here rather than merely recorded in ADR-0008, so silent drif
 from __future__ import annotations
 
 import hashlib
+import re
 from pathlib import Path
 
 import pytest
@@ -34,6 +35,48 @@ def test_a_vendored_bundle_matches_its_pinned_hash(name: str) -> None:
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
 
     assert digest == EXPECTED[name], f"{name} drifted from its pinned build"
+
+
+#: The three crops of the owner-supplied painting: the masthead band and the two gutter strips.
+#: Each excludes the figure in the source by its crop box, and each is committed and hashed like
+#: any other vendored asset — a background image referenced by URL is exactly the kind of file
+#: that gets swapped for a 5 MB original without anyone noticing.
+ART = {
+    "masthead.webp": "905f1493f6fe64668c4f9d0d8d759b11142034ff8059043cf7a87c15798074f9",
+    "field-left.webp": "29c5922384be401ec424a7d67008e8bae99558df3415ae15f4815080d004532f",
+    "field-right.webp": "c2d731138097e81cac15b2ff01bb9c766e08e19b297bf22af271d136e0784a7b",
+}
+ART_DIR = Path("static/img")
+
+#: All of it is decoration on a page whose job is a fast, sourced figure, so the *total* gets a
+#: ceiling rather than each file getting its own — three files at 119 KB each would pass a
+#: per-file limit and still be three quarters of a megabyte.
+ART_MAX_TOTAL_BYTES = 220_000
+
+
+@pytest.mark.parametrize("name", sorted(ART))
+def test_a_painting_crop_matches_its_pinned_hash(name: str) -> None:
+    path = ART_DIR / name
+    assert path.is_file(), f"{name} is not vendored"
+
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+
+    assert digest == ART[name], f"{name} drifted from its committed crop"
+
+
+def test_the_decoration_stays_within_its_byte_budget() -> None:
+    """Decoration is allowed to be here; it is not allowed to grow unnoticed."""
+    total = sum((ART_DIR / name).stat().st_size for name in ART)
+
+    assert total <= ART_MAX_TOTAL_BYTES, f"page art is {total} bytes; re-encode or drop a crop"
+
+
+def test_every_asset_url_in_the_stylesheet_resolves() -> None:
+    """A typo in a background-image URL is invisible until someone opens the page."""
+    css = Path("static/app.css").read_text(encoding="utf-8")
+
+    for url in re.findall(r"url\(\"(/static/[^\"]+)\"\)", css):
+        assert Path(url.lstrip("/")).is_file(), f"{url} is referenced by app.css but missing"
 
 
 def test_no_template_reaches_for_a_cdn() -> None:

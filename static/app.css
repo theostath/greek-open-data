@@ -4,38 +4,62 @@
   Light by scene, not by default: a journalist at 16:40, in daylight, with the CMS in the next
   tab, copying a figure into a story that files at 18:00.
 
-  Restrained colour. One amber accent marks what you can act on and what the system chose;
-  neutrals sit at chroma 0 so a warm accent never lands on a warm surface. Freshness and
-  coverage are stated in words — hue never carries meaning here.
+  Committed colour, white and blue. Light blue carries the chrome — masthead band, colophon,
+  panels; blue carries everything actionable — links, buttons, focus, the system's current
+  choice. The reading surface stays white, and nothing that reports a value is ever coloured:
+  freshness, coverage and proportion are stated in words and neutral ink, never in hue.
 */
 
 :root {
-  /* Surface is literally #ffffff. Not cream, not sand: the accent is the warmth. */
+  /* Every surface is sampled from the painting, not chosen beside it. Percentile sampling of
+     its 707,810 blue pixels puts the median at oklch(0.429 0.053 237) and the whole blue range
+     between L 0.31 and L 0.62 — the artwork contains no light blues at all. That is why the
+     chrome is dark: a pale tint cannot "match its intensity", it can only sit next to it.
+     Every ratio below is measured in tests/test_api_contrast.py, not asserted. */
   --bg: oklch(1 0 0);
-  --surface-sunken: oklch(0.975 0 0);
 
-  /* Ink clears 4.5:1 with room to spare. Quiet ink is smaller and calmer, never lighter
-     than legible — it is held to the same 4.5:1 as body text, as is the placeholder. */
-  --ink: oklch(0.24 0 0);
-  --ink-quiet: oklch(0.46 0 0);
-  --rule: oklch(0.90 0 0);
-  --rule-strong: oklch(0.80 0 0);
+  /* The chrome bands — masthead and colophon — at the painting's own median blue, carrying
+     light text. Inside a band the accent inverts: --band-link plays the role blue plays on
+     white, because the accent at L=0.48 on a L=0.43 band is invisible (1.1:1). */
+  --band: oklch(0.43 0.055 237);
+  --band-ink: oklch(1 0 0);
+  --band-ink-quiet: oklch(0.86 0.030 237);
+  --band-link: oklch(0.86 0.055 237);
+  --band-link-hover: oklch(0.94 0.031 237);
+  --band-rule: oklch(0.56 0.045 237);
+
+  /* Light surfaces, each as saturated as its own contrast duty allows. The wash carries the
+     suggestion buttons and is the more chromatic of the two because it is a control; the panel
+     behind a citation stays calmer. Both are capped by the same thing: a blue link sitting on
+     them still owes 4.5:1, which is what stops either going further. */
+  --surface-sunken: oklch(0.89 0.057 237);
+  --accent-wash: oklch(0.87 0.068 237);
+
+  /* Ink clears 4.5:1 with room to spare. Quiet ink is smaller and calmer, never lighter than
+     legible — held to the same 4.5:1, as is the placeholder. */
+  --ink: oklch(0.24 0.016 237);
+  --ink-quiet: oklch(0.45 0.020 237);
+  --rule: oklch(0.86 0.030 237);
+  --rule-strong: oklch(0.75 0.040 237);
 
   /* The accent is a verb: actions, the current selection, focus. Never a data value, never a
-     chart series, never a section marker. Target <=10% of any screen.
+     chart series, never a section marker.
 
-     DESIGN.md anchors this at oklch(0.700 0.130 60) and leaves the ramp "to be resolved
-     during implementation". Resolved here at L=0.660: the anchor measures 2.76:1 against
-     white, and WCAG 2.2 1.4.11 needs 3:1 for a focus ring and for a control's own boundary.
-     L=0.660 measures 3.10:1. Hue and chroma are unchanged, so the ±10° hue rule holds. */
-  --accent: oklch(0.660 0.130 60);
-  --accent-hover: oklch(0.610 0.135 60);
-  --accent-ink: oklch(0.20 0.03 60);
-  --accent-wash: oklch(0.972 0.020 60);
+     Blue at L=0.48 measures 5.87:1 against white — past the 3:1 WCAG 2.2 1.4.11 asks of a
+     focus ring and of a control's own boundary, and dark enough that the button label is white
+     rather than a dark ink (6.63:1 on the fill, 8.94:1 on hover). It alone stays at hue 255
+     while every surface moved to the painting's 237: chroma barely moves luminance, but the
+     sRGB gamut narrows sharply toward 237, and matching the painting exactly would have forced
+     max chroma from 0.160 down to about 0.11 — a visibly duller button bought for a hue shift
+     nobody can perceive on a control that small. The old oklch(0.50 0.170 255) was in fact
+     **outside sRGB** (red channel -0.003) and had been silently gamut-mapped by the browser. */
+  --accent: oklch(0.48 0.155 255);
+  --accent-hover: oklch(0.41 0.135 255);
+  --accent-ink: oklch(1 0 0);
 
-  /* A form control's visible boundary is non-text contrast (1.4.11), so it needs 3:1 —
-     --rule-strong at 1.87:1 is fine for a decorative divider and not for this. */
-  --control-border: oklch(0.66 0 0);
+  /* A form control's visible boundary is non-text contrast (1.4.11), so it needs 3:1 — and it
+     owes that on the wash it sits on as well as on white. */
+  --control-border: oklch(0.56 0.028 237);
 
   --measure: 68ch;
   --step--1: 0.875rem;
@@ -54,6 +78,16 @@
   --space-7: 3rem;
   --space-8: 4.5rem;
 
+  /* Canvas grain. An inline SVG so it costs no request and raises no licence question — the
+     project can only vendor Apache-2.0-compatible assets, and generated geometry has no
+     licence to inherit. Desaturated fractal noise at 0.055 opacity: enough to give the field
+     a material and stop the gutters reading as void, far too faint to compete with a figure.
+
+     The opacity is load-bearing, not taste. tests/test_api_contrast.py computes the darkest
+     surface this grain can produce and re-measures every text pair against it — raise 0.055
+     and the suite fails rather than shipping a page that got quietly harder to read. */
+  --canvas: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)' opacity='0.055'/%3E%3C/svg%3E");
+
   --radius: 4px;
   --motion: 180ms;
   --ease: cubic-bezier(0.22, 1, 0.36, 1); /* ease-out-quart: no bounce, no elastic */
@@ -71,7 +105,8 @@ html { -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image: var(--canvas);
   color: var(--ink);
   font-family: var(--font);
   font-size: var(--step-0);
@@ -79,15 +114,62 @@ body {
   padding: var(--space-6) var(--space-5) var(--space-8);
 }
 
-main, .masthead, .colophon { max-width: var(--measure); margin-inline: auto; }
+main, .masthead-inner, .colophon-inner { max-width: var(--measure); margin-inline: auto; }
+
+/* The gutters continue the painting down both sides of the column. Two things keep this from
+   being a legibility problem rather than a design one:
+
+   --gutter is the space actually left over once the measure and a --space-7 buffer are taken
+   out, so the strips can never reach the text — and it collapses to 0 on a narrow viewport,
+   which is how they hide themselves without a breakpoint. The inner edge of each strip fades
+   to transparent in the image's own alpha channel, because a background layer cannot carry a
+   CSS mask; that is why they dissolve into the page instead of ending on a hard vertical line.
+   Fixed attachment means the field stays put while the column scrolls over it. */
+@media (min-width: 62rem) {
+  body {
+    --gutter: clamp(0px, calc((100vw - var(--measure)) / 2 - var(--space-7)), 20rem);
+    background-image:
+      var(--canvas),
+      url("/static/img/field-left.webp"),
+      url("/static/img/field-right.webp");
+    background-position: 0 0, left center, right center;
+    background-size: auto, var(--gutter) 100%, var(--gutter) 100%;
+    background-repeat: repeat, no-repeat, no-repeat;
+    background-attachment: scroll, fixed, fixed;
+  }
+}
+
+/* The two chrome bands. They bleed past the body padding to the viewport edge, and they carry
+   the painting's own dark blue, so the white reading field sits framed between them. Chrome
+   only: no band ever sits behind a figure, a chart or a provenance value.
+
+   Everything inside a band runs light-on-dark, including the focus ring — the accent is
+   invisible here (1.1:1 against the band), so white takes over that job at 8.02:1. */
+.masthead, .colophon {
+  background-color: var(--band);
+  background-image: var(--canvas);
+  color: var(--band-ink-quiet);
+  margin-inline: calc(var(--space-5) * -1);
+  padding-inline: var(--space-5);
+}
+.masthead a, .colophon a { color: var(--band-link); }
+.masthead a:hover, .colophon a:hover {
+  color: var(--band-link-hover);
+  text-decoration-color: var(--band-link-hover);
+}
+.masthead :focus-visible, .colophon :focus-visible { outline-color: var(--band-ink); }
 
 h1, h2, h3 { line-height: 1.25; text-wrap: balance; margin: 0 0 var(--space-3); }
 h1 { font-size: var(--step-4); letter-spacing: -0.02em; }
 h2 { font-size: var(--step-2); letter-spacing: -0.01em; }
 h3 { font-size: var(--step-1); }
 p { margin: 0 0 var(--space-4); text-wrap: pretty; }
-a { color: var(--ink); text-underline-offset: 0.2em; text-decoration-thickness: 1px; }
-a:hover { text-decoration-color: var(--accent); }
+/* Links are blue because a link is the most common actionable thing on the page — this is the
+   Accent Is A Verb rule applied literally, not an exception to it. 5.87:1 on white and 4.60:1
+   in the worst case (grained chrome band), so blue is legitimate as text here — the amber it
+   replaced could never have been link text at all. */
+a { color: var(--accent); text-underline-offset: 0.2em; text-decoration-thickness: 1px; }
+a:hover { color: var(--accent-hover); text-decoration-color: var(--accent-hover); }
 
 /* Every figure is tabular so a column can be scanned, not decoded one line at a time. */
 .num, .facts td, .progress-elapsed .num, .staleness { font-variant-numeric: tabular-nums; }
@@ -112,12 +194,60 @@ a:hover { text-decoration-color: var(--accent); }
 
 /* ---- Masthead ---------------------------------------------------------- */
 
-.masthead { margin-bottom: var(--space-6); }
-.wordmark {
-  display: inline-block; font-size: var(--step-1); font-weight: 620;
-  letter-spacing: -0.01em; text-decoration: none; margin-bottom: var(--space-2);
+.masthead {
+  margin-top: calc(var(--space-6) * -1);
+  margin-bottom: var(--space-6);
+  padding-block: 0 var(--space-5);
 }
-.standfirst { color: var(--ink-quiet); font-size: var(--step--1); max-width: 58ch; margin: 0; }
+
+/* The painted band: a figure-free crop of the owner-supplied canvas, run full bleed across the
+   top of every page. It holds no text on purpose. Setting the wordmark over it would have meant
+   a 0.55 black scrim to keep white legible against the near-white lamp specks (measured), and
+   that scrim destroys the impasto it exists to show. Text-free, it owes no ratio and needs no
+   scrim, so the paint runs at full strength. Nothing here reports a value. */
+.masthead-art {
+  height: clamp(4.5rem, 11vw, 9rem);
+  margin-inline: calc(var(--space-5) * -1);
+  margin-bottom: var(--space-5);
+  background: url("/static/img/masthead.webp") center 58% / cover no-repeat;
+  border-bottom: 1px solid var(--band-rule);
+}
+
+/* The product name is the masthead, so it claims the whole measure rather than sitting as a
+   small link above it. Ink, not blue: at this size the accent would stop reading as "you can
+   act on this" and start reading as a logo colour, which is what the accent must never become.
+   2.5rem is a one-off display size, deliberately above --step-4 and not added to the shared
+   scale — nothing else on any page is set at it. The vw clamp is what stops it overflowing
+   the column on a narrow viewport. */
+.wordmark {
+  color: var(--band-ink);
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  font-size: min(2.5rem, 11vw);
+  font-weight: 680;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  text-decoration: none;
+  margin-bottom: var(--space-3);
+}
+
+/* The rule runs from the name out to the edge of the measure. Blue at rest is permitted here
+   because the whole wordmark is the home link. On the dark band the accent cannot do that job
+   at all (1.1:1), so the band's light blue carries it. */
+.wordmark::after {
+  content: "";
+  flex: 1 1 auto;
+  align-self: flex-end;
+  margin-bottom: 0.24em;
+  height: 0;
+  border-top: 2px solid var(--band-link);
+  transition: border-color var(--motion) var(--ease);
+}
+.wordmark:hover::after { border-color: var(--band-link-hover); }
+.standfirst {
+  color: var(--band-ink-quiet); font-size: var(--step--1); max-width: 58ch; margin: 0;
+}
 
 /* ---- Ask --------------------------------------------------------------- */
 
@@ -154,6 +284,28 @@ button:hover { background: var(--accent-hover); }
 button:active { transform: translateY(1px); }
 button[disabled], button[aria-busy="true"] { opacity: 0.55; cursor: progress; }
 
+/* The primary action carries real press feedback: flat at rest, lifting under the pointer on
+   hover, then settling on press. The shadow is a *response* to interaction and never a resting
+   decoration, which is what the Flat Until Interactive rule licenses. Only this button gets the
+   size bump — the press physics stay the same vocabulary as every other button.
+   0.85rem is the one off-scale value here; the row's flex stretch matches the input to it. */
+.ask-row button {
+  font-size: var(--step-1);
+  padding: 0.85rem var(--space-6);
+  transition: background-color var(--motion) var(--ease),
+              transform var(--motion) var(--ease),
+              box-shadow var(--motion) var(--ease);
+}
+.ask-row button:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 8px oklch(0 0 0 / 0.16);
+}
+.ask-row button:active {
+  transform: translateY(1px);
+  box-shadow: none;
+  transition-duration: 60ms;
+}
+
 .ask-hint { color: var(--ink-quiet); font-size: var(--step--1); margin: var(--space-2) 0 0; }
 
 /* ---- Empty state ------------------------------------------------------- */
@@ -171,14 +323,14 @@ button[disabled], button[aria-busy="true"] { opacity: 0.55; cursor: progress; }
 /* Example and re-ask controls are secondary: same shape as the primary button, quieter fill,
    so the vocabulary stays consistent without competing with Ask. */
 .example {
-  background: var(--bg);
+  background: var(--accent-wash);
   color: var(--ink);
   border-color: var(--control-border);
   text-align: start;
   padding: var(--space-2) var(--space-3);
   font-weight: 400;
 }
-.example:hover { background: var(--accent-wash); border-color: var(--accent); }
+.example:hover { border-color: var(--accent); }
 
 .plain li {
   color: var(--ink-quiet); font-size: var(--step--1);
@@ -206,7 +358,7 @@ button[disabled], button[aria-busy="true"] { opacity: 0.55; cursor: progress; }
 
 @media (prefers-reduced-motion: no-preference) {
   .sk { animation: pulse 1.6s var(--ease) infinite; }
-  @keyframes pulse { 50% { background: oklch(0.94 0 0); } }
+  @keyframes pulse { 50% { background: oklch(0.855 0.062 237); } }
 }
 
 .progress-elapsed { color: var(--ink-quiet); font-size: var(--step--1); margin: 0; }
@@ -378,7 +530,7 @@ button[disabled], button[aria-busy="true"] { opacity: 0.55; cursor: progress; }
 .back { margin-top: var(--space-6); font-size: var(--step--1); }
 
 /* ---- Stats --------------------------------------------------------------
-   Bars are neutral, not amber: the accent means "actionable", and a proportion is neither an
+   Bars are neutral, not blue: the accent means "actionable", and a proportion is neither an
    action nor the system's current choice. Every bar is labelled with its own number, so the
    bar is redundant reinforcement rather than the only channel. */
 
@@ -429,11 +581,28 @@ button[disabled], button[aria-busy="true"] { opacity: 0.55; cursor: progress; }
 /* ---- Colophon ---------------------------------------------------------- */
 
 .colophon {
-  margin-top: var(--space-8); padding-top: var(--space-4);
-  border-top: 1px solid var(--rule);
-  color: var(--ink-quiet); font-size: var(--step--1);
+  margin-top: var(--space-8);
+  margin-bottom: calc(var(--space-8) * -1);
+  padding-block: var(--space-5) var(--space-6);
+  color: var(--band-ink-quiet); font-size: var(--step--1);
 }
 .colophon p { margin: 0; }
+
+/* The grain is a screen material, not information. It comes off wherever the surface stops
+   being a screen or the user has asked the OS to take over the colours — and the answer is
+   destined for print, so paper gets the clean plane. */
+@media print, (forced-colors: active) {
+  body, .masthead, .colophon { background-image: none; }
+  .masthead-art { display: none; }
+}
+
+/* 200 KB of painting is the heaviest thing this page loads and all of it is decoration, so a
+   connection that has asked for less gets none of those bytes — grain included, since it is
+   the field the strips were there to enrich. */
+@media (prefers-reduced-data: reduce) {
+  body, .masthead, .colophon { background-image: none; }
+  .masthead-art { display: none; }
+}
 
 /* Flat at rest; every transition has a reduced-motion alternative. */
 @media (prefers-reduced-motion: reduce) {
@@ -443,4 +612,5 @@ button[disabled], button[aria-busy="true"] { opacity: 0.55; cursor: progress; }
     transition-duration: 0.01ms !important;
   }
   button:active { transform: none; }
+  .ask-row button:hover, .ask-row button:active { transform: none; }
 }
