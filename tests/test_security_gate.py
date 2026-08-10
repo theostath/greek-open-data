@@ -124,9 +124,37 @@ def test_pr_merge_selector_survives_leading_flags(monkeypatch: pytest.MonkeyPatc
 
 
 def test_unresolvable_pr_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
-    """If the base cannot be read, assume main rather than waving the merge through."""
+    """If the base cannot be read, deny rather than waving the merge through."""
     monkeypatch.setattr(gate, "run", lambda *a: None)
-    assert gate.gate_subject("gh pr merge 42") == gate.UNRESOLVED
+    assert gate.gate_subject("gh pr merge 42") == gate.UNDETERMINED
+
+
+def test_an_unreadable_base_is_reported_as_undetermined_not_as_targeting_main() -> None:
+    """The two are different claims.
+
+    `gh pr view` failing is transient and common; saying "this targets main" when the PR
+    in fact targets `develop` sends the reader hunting for a merge that never existed.
+    """
+    assert gate.UNDETERMINED != gate.UNRESOLVED
+    assert "could NOT determine" in gate.UNDETERMINED_REASON
+    assert "does NOT mean the command targets main" in gate.UNDETERMINED_REASON
+
+
+def test_both_sentinels_still_deny(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The message changed; the decision must not. This is a security control."""
+    for sentinel in (gate.UNRESOLVED, gate.UNDETERMINED):
+        assert gate.review_covers(sentinel) is False
+
+
+def test_a_marker_holding_the_undetermined_sentinel_cannot_satisfy_the_gate(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """UNDETERMINED is truthy, unlike UNRESOLVED, so it needs an explicit refusal."""
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / ".last-security-review").write_text(gate.UNDETERMINED)
+    monkeypatch.setattr(gate, "run", lambda *a: str(tmp_path))
+
+    assert gate.review_covers(gate.UNDETERMINED) is False
 
 
 def test_unresolved_subject_is_never_covered() -> None:
