@@ -202,6 +202,36 @@ categories makes the visible ranking not the real one.
 table is incomplete or categorically truncated, where the guard would reject it. The template
 never passes through `check_claims`, so this is unguarded by design. Not addressed here.
 
+## Amendment (2026-08-17): the limitation joins the placeholder protocol
+
+**The defect.** `check_claims` requires the narration to contain the first 24 folded characters
+of the limitation verbatim, while `prompts/narrate.md` rule 4 told the model to state it *"in
+your own first or second sentence"* — wording that licenses a paraphrase. The two were written
+at different times and asked for different things. The model obeyed the prompt, paraphrased,
+and the guard rejected it for doing so. Measured on `data/metrics.sqlite`: **6 of 13 real
+questions returned `partial` with `narration_rejected = 1`, and all six carried a caveat** —
+every caveat-carrying answer lost the model's prose.
+
+**The decision.** The limitation becomes a placeholder token like every figure already is.
+`build_placeholders` maps `{LIMITATION}` to the sentence, the prompt requires the token to be
+copied rather than restated, and `substitute` puts the real sentence back after the guard
+accepts. **`verify.py` is unchanged**: its verbatim check stops being a paraphrase detector and
+becomes the enforcement that the token was actually emitted, since substitution can only
+produce that exact sentence if the model copied it.
+
+**Why this strengthens the contract rather than relaxing it.** The alternative on the table was
+loosening the check to fuzzy or keyword matching. That would have traded a hard guarantee for
+fluency — and the limitation is the one sentence Phase 6 exists to keep in front of the reader.
+Under the token rule the reader sees our exact wording or sees the template; a fluent paraphrase
+that clears a 24-character prefix while distorting the remainder is no longer reachable.
+
+**On showing the model the sentence as well as the token.** It is given both, so the surrounding
+prose cannot contradict what it is asserting. This does not widen the injection surface that
+ADR-0006 measured: every caveat in `answer._caveats` is one of our own hard-coded Greek/English
+sentences, interpolating only dates, counts and an LLM-extracted filter name — no
+publisher-controlled cell text reaches it. Should a caveat ever be built from file content, it
+must be tokenised like a fact label instead.
+
 ## Amendments to ADR-0006
 
 1. **`TableData` gains `header_trusted`** (no default, like `complete`). See the amendment note

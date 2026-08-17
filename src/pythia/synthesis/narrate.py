@@ -14,7 +14,6 @@ otherwise be able to forge a system turn.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from pythia.llm import LLMClient, LLMError
@@ -22,7 +21,6 @@ from pythia.synthesis import footer as footer_mod
 from pythia.synthesis.models import FactTable, Footer, Operation
 
 _PROMPT_PATH = Path(__file__).parent / "prompts" / "narrate.md"
-_PLACEHOLDER = re.compile(r"\{(FACT|LABEL)_(\d+)\}")
 
 
 def load_prompt() -> str:
@@ -99,8 +97,15 @@ def _join(body: str, limitation: str | None, footer: Footer, language: str) -> s
     return " ".join(parts)
 
 
-def build_placeholders(facts: FactTable, language: str) -> tuple[str, dict[str, str]]:
-    """Describe the facts to the model using opaque tokens, and return the substitutions."""
+def build_placeholders(
+    facts: FactTable, language: str, *, limitation: str | None = None
+) -> tuple[str, dict[str, str]]:
+    """Describe the facts to the model using opaque tokens, and return the substitutions.
+
+    The limitation is a token like any figure. Asking the model to reproduce the sentence from
+    memory made ``verify``'s verbatim check unsatisfiable in practice — it paraphrased, and
+    every caveat-carrying answer fell back to the template.
+    """
     lines: list[str] = []
     mapping: dict[str, str] = {}
     for index, fact in enumerate(facts.facts[:12], start=1):
@@ -109,6 +114,8 @@ def build_placeholders(facts: FactTable, language: str) -> tuple[str, dict[str, 
         mapping[value_token] = footer_mod.format_number(fact.value, language)
         unit = f" (unit: {fact.unit})" if fact.unit else ""
         lines.append(f"- {label_token} = {value_token}{unit}")
+    if limitation:
+        mapping["{LIMITATION}"] = limitation
     return "\n".join(lines), mapping
 
 
@@ -127,13 +134,21 @@ def write(
     """Ask the model for prose over placeholders. ``None`` means fall back to the template."""
     if llm is None or not facts.facts:
         return None
-    described, mapping = build_placeholders(facts, language)
+    described, mapping = build_placeholders(facts, language, limitation=limitation)
     user = (
         f"Question: {question}\n"
         f"Answer language: {'Greek' if language == 'el' else 'English'}\n"
         f"Operation: {operation.value}\n"
         f"Facts (use these tokens verbatim, never invent figures):\n{described}\n"
-        + (f"Limitation you MUST state: {limitation}\n" if limitation else "")
+        + (
+            # The sentence is shown as well as the token: the model needs to know what it is
+            # asserting so the surrounding prose does not contradict it. Safe to show — every
+            # caveat is one of our own sentences, interpolating only dates and counts.
+            f"Limitation: copy the token {{LIMITATION}} into your first or second sentence.\n"
+            f"It stands for this sentence, which the rest of your answer must not contradict: "
+            f"{limitation}\n"
+            if limitation else ""
+        )
     )
     if len(user.encode("utf-8")) > max_prompt_bytes:
         return None
