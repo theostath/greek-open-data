@@ -1,15 +1,18 @@
 # Pythia
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](CHANGELOG.md)
 
 > Natural-language query assistant over the Greek national open-data portal
 > ([data.gov.gr](https://data.gov.gr)). Ask a question in **Greek or English** → get the
 > right dataset, a **grounded, cited answer**, and a chart — with a freshness/provenance footer.
 
-**Status:** early development. Phases 0–7 are complete — the pipeline runs end to end on the
-command line *and* in a browser. `uv run pythia-dev` serves the web app on `127.0.0.1:8000`;
-`uv run python -m pythia.synthesis.answer --question "..."` does the same from a terminal. Both
-share one orchestration path. Phase 8 (eval & hardening) is next. See the [roadmap](#roadmap).
+**Status: v0.1.0**, the first tagged release — early but complete end to end. Phases 0–7 are
+done: the pipeline runs on the command line *and* in a browser. `uv run pythia-dev` serves the
+web app on `127.0.0.1:8000`; `uv run python -m pythia.synthesis.answer --question "..."` does
+the same from a terminal, and both share one orchestration path. Phase 8 (eval & hardening) is
+next. See the [roadmap](#roadmap), and the [changelog](CHANGELOG.md) for what this release
+contains and — just as importantly — what it does not yet do well.
 
 **Pythia is open source, Apache-2.0.** Public data deserves public tooling: the datasets this
 queries are published by Greek public bodies for anyone to use, and a tool that makes them
@@ -18,6 +21,15 @@ grant, and over a copyleft licence so public bodies and newsrooms can adopt it w
 obligations that would put them off. Contributions are welcome under the same terms.
 
 ---
+
+## What it looks like
+
+| | |
+| --- | --- |
+| ![Asking a question](docs/img/home.webp) | ![An answered question with its chart](docs/img/answer.webp) |
+| **Ask** — Greek, Greeklish or English. | **Answer** — the figure, its provenance, then the chart. The caveat above the chart is part of the answer, not a footnote: this table hides 75 grouped categories and says so. |
+| ![Browsing the catalogue](docs/img/explore.webp) | ![Outcome statistics](docs/img/stats.webp) |
+| **Explore** — browse by publisher and theme, filtered to the 24% of datasets that are actually readable. Asking from here pins the resource and skips retrieval entirely. | **Stats** — leads with the refusal mix, because under grounded-or-silent that ratio *is* the health signal. No question text is stored. |
 
 ## Why
 
@@ -59,18 +71,23 @@ Local-first and reproducible: the MVP runs entirely on a laptop with no managed 
 
 ```
 config.py              # typed settings (pydantic-settings)
+CHANGELOG.md           # what each release contains, and its known limitations
 src/pythia/
   ingest/              # API discovery + catalog harvest
   retrieval/           # embed + search metadata
   planning/            # NL -> structured query
   access/              # resilient data fetch + cache
   synthesis/           # grounded answer + chart spec
-  api/                 # FastAPI routes
+  api/                 # FastAPI routes, /explore, /stats, the dev entrypoint
   eval/                # golden set + scoring
+templates/             # Jinja2 + HTMX partials
+static/                # app.css, app.js, vendored htmx + ECharts (hash-pinned)
 docs/
   api_findings.md      # curated API source of truth
   api_probe_raw.md     # auto-generated probe evidence
   adr/                 # architecture decision records
+  benchmarks/          # measured runs (e.g. the 98-min index build)
+  img/                 # interface screenshots used above
 ```
 
 ## Quickstart
@@ -169,11 +186,17 @@ All of these are **local build artifacts** (gitignored) — regenerate them with
       (`make answer QUESTION="..."`). The LLM never emits a quantity and never sees the
       table; a claim guard rejects any figure, magnitude-word, trend or superlative the
       computed facts do not license (ADR-0007).
-- [ ] **Phase 7** — Interface: FastAPI + HTMX chat.
-- [ ] **Phase 8** — Eval & hardening.
+- [x] **Phase 7** — Interface: one FastAPI process serving Jinja2 + HTMX (ADR-0008) —
+      `uv run pythia-dev`. Includes `/explore` (deterministic catalogue browsing, no LLM) and
+      `/stats`. Assets are vendored and hash-asserted; contrast is measured, not claimed.
+- [ ] **Phase 8** — Eval & hardening: expand the golden set beyond n=26, observability,
+      honesty checks.
 
 ## Conventions
 
 Project context, principles, and the working agreement live in
 [`CLAUDE.md`](CLAUDE.md). Code is fully type-hinted (`mypy` strict); commits follow
-[Conventional Commits](https://www.conventionalcommits.org/).
+[Conventional Commits](https://www.conventionalcommits.org/); branching follows
+[Gitflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow), so
+pull requests target `develop` and `main` carries tagged releases only. Notable changes are
+recorded in [`CHANGELOG.md`](CHANGELOG.md).
