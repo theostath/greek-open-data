@@ -127,3 +127,54 @@ def test_omitted_limitation_is_rejected() -> None:
 def test_empty_narration_is_rejected() -> None:
     """A blank answer is not an answer."""
     assert not check_claims("   ", facts(("Χ", 1)), foot()).ok
+
+
+def test_a_numeric_dimension_label_may_be_cited() -> None:
+    """A year-dimensioned table makes every label a numeral.
+
+    Labels are computed strings from the fact table, not figures the model produced, and
+    `render_template` prints "2016: 753" unguarded. Excluding them from `allowed_tokens` made
+    the citation sayable by the template and forbidden to the model — measured live on
+    "How many road traffic accidents were recorded?", where 2016, 2015 and 2014 were all
+    rejected as figures absent from the facts.
+    """
+    result = check_claims("2016 with 753, and 2015 with 746.",
+                          facts(("2016", 753), ("2015", 746)), foot(), language="en")
+    assert result.ok, result.reason
+
+
+def test_a_number_that_is_neither_a_value_nor_a_label_is_still_rejected() -> None:
+    """Admitting labels must not admit arbitrary numerals."""
+    assert not check_claims("2016 with 753, and 1999 with 12.",
+                            facts(("2016", 753)), foot(), language="en").ok
+
+
+def test_completeness_claim_over_an_incomplete_table_is_rejected() -> None:
+    """Stating the caveat does not license contradicting it in the same breath.
+
+    The guard checked omission, never contradiction: once the limitation is appended
+    structurally it is always present, so "the data is complete" beside it would otherwise
+    verify clean and publish a self-contradicting answer.
+    """
+    limitation = "Ανακτήθηκε μέρος μόνο των δεδομένων."
+    text = f"Τα δεδομένα είναι πλήρη. ΑΙΓΥΠΤΟΣ: 7.547. {limitation}"
+    assert not check_claims(text, facts(("ΑΙΓΥΠΤΟΣ", 7547)), foot(), complete=False,
+                            limitation=limitation).ok
+
+
+def test_completeness_claim_over_a_complete_table_is_allowed() -> None:
+    """The check must not cost a truthful answer over data that really is complete."""
+    assert check_claims("Τα δεδομένα είναι πλήρη. ΑΙΓΥΠΤΟΣ: 7.547.",
+                        facts(("ΑΙΓΥΠΤΟΣ", 7547)), foot(), complete=True).ok
+
+
+def test_negated_completeness_is_also_rejected_and_that_is_deliberate() -> None:
+    """"δεν είναι πλήρη" is honest, and still refused: the guard does not parse negation.
+
+    Fail-closed is the cheap direction here — the template renders the same facts, so the
+    cost is fluency, while a negation-aware matcher would be a new way to be wrong.
+    """
+    limitation = "Ανακτήθηκε μέρος μόνο των δεδομένων."
+    text = f"Τα δεδομένα δεν είναι πλήρη. ΑΙΓΥΠΤΟΣ: 7.547. {limitation}"
+    assert not check_claims(text, facts(("ΑΙΓΥΠΤΟΣ", 7547)), foot(), complete=False,
+                            limitation=limitation).ok

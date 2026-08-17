@@ -16,6 +16,7 @@ import re
 from decimal import Decimal
 
 from pythia.synthesis.lexicon import (
+    COMPLETENESS_WORDS,
     MARKUP_PATTERNS,
     MAXIMAL_WORDS,
     MINIMAL_WORDS,
@@ -62,6 +63,12 @@ def allowed_tokens(facts: FactTable | None, footer: Footer | None, language: str
     for fact in facts.facts if facts else []:
         allowed.add(normalise_number(str(fact.value), language))
         allowed.add(str(fact.n_used))
+        # A label that is itself a numeral — a year, a code — is a computed string from the
+        # fact table, not a figure the model invented, and `render_template` prints it
+        # unguarded. Excluding it made "2016: 753" sayable by the template and forbidden to
+        # the model. Binding a value to the wrong label stays `_check_label_binding`'s job.
+        if _PURE_NUMBER.match(fact.label.strip()):
+            allowed.add(normalise_number(fact.label, language))
     if facts and facts.publisher_stated_total is not None:
         allowed.add(normalise_number(str(facts.publisher_stated_total.value), language))
     if facts:
@@ -117,6 +124,15 @@ def check_claims(
         if word in folded and "trend" not in licensed:
             return VerificationResult(ok=False, rejected_tokens=[word],
                                       reason="trend claim not licensed by the facts")
+
+    if not complete:
+        # Contradiction, not omission. The limitation is appended structurally, so it is always
+        # present; without this, "τα δεδομένα είναι πλήρη" beside it verifies clean and the
+        # reader gets a self-contradicting answer with the false half first.
+        for word in COMPLETENESS_WORDS:
+            if word in folded:
+                return VerificationResult(ok=False, rejected_tokens=[word],
+                                          reason="claims the data is whole when it is not")
 
     if limitation and fold(limitation)[:24] not in folded:
         return VerificationResult(ok=False, reason="stated limitation omitted from the answer")

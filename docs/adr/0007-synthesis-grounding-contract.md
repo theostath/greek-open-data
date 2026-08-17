@@ -202,6 +202,47 @@ categories makes the visible ranking not the real one.
 table is incomplete or categorically truncated, where the guard would reject it. The template
 never passes through `check_claims`, so this is unguarded by design. Not addressed here.
 
+## Amendment (2026-08-17): the limitation stops being the model's job
+
+**The defect.** `check_claims` requires the narration to contain the first 24 folded characters
+of the limitation verbatim, while `prompts/narrate.md` rule 4 told the model to state it *"in
+your own first or second sentence"* — wording that licenses a paraphrase. The two were written
+at different times and asked for different things. The model obeyed the prompt, paraphrased,
+and the guard rejected it for doing so. Measured on `data/metrics.sqlite`: **6 of 13 real
+questions returned `partial` with `narration_rejected = 1`, and all six carried a caveat** —
+every caveat-carrying answer lost the model's prose.
+
+**The decision.** The model is no longer told the limitation exists. `narrate.write` omits it
+from the prompt, `attach_limitation` appends it to the accepted narration, and `check_claims`
+runs on the composed string a reader actually sees. Presence is therefore structural: it does
+not depend on the model complying, and there is no wording for an injected instruction to talk
+it out of.
+
+**Rejected: making it a placeholder token.** `{LIMITATION}` was implemented first and it did
+clear the guard — twice out of two live runs against `qwen3.5:9b`. It was abandoned because the
+model *also* restated the sentence in its own words, both times, producing the caveat twice per
+answer; and because a prompt rule forbidding the restatement did not stop it. The token also
+left the sentence's presence contingent on the model copying it, which structural appending does
+not. Recorded because "ask the model to copy a token" is the obvious next idea and it was tried.
+
+**The hole this exposed, and the new check.** The guard tested *omission*, never
+*contradiction*. Once the limitation is always present, a narration asserting "τα δεδομένα είναι
+πλήρη" beside it verifies clean and publishes a self-contradicting answer — measured directly,
+`ok=True`. That gap predates this change: it was only ever caught because such an answer also
+tended to omit the caveat. `COMPLETENESS_WORDS` now refuses claims of wholeness over an
+incomplete table, so `test_injected_instruction_cannot_suppress_the_truncation_caveat` passes
+for the right reason instead of incidentally.
+
+**The check is negation-blind on purpose.** "δεν είναι πλήρη" is honest and is still refused.
+Rejection costs a stylistic downgrade to a template that renders the same facts, while a
+negation parser is a new component that can be wrong in a direction that publishes a falsehood.
+The asymmetry decides it.
+
+**What this does not fix.** The narration prompt is now the binding constraint on answer
+quality. Live, with the guard satisfied, the model produced a bare list of figures with no
+labels — true, accepted, and worse than the deterministic template. That is prompt work, not
+guard work, and it was masked by this defect until now.
+
 ## Amendments to ADR-0006
 
 1. **`TableData` gains `header_trusted`** (no default, like `complete`). See the amendment note

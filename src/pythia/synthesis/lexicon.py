@@ -139,6 +139,19 @@ MINIMAL_WORDS: tuple[str, ...] = tuple(fold(word) for word in (
 
 SUPERLATIVE_WORDS: tuple[str, ...] = MAXIMAL_WORDS + MINIMAL_WORDS
 
+#: Claims that the data is whole. Refused whenever the table is incomplete, because the
+#: limitation is appended structurally and is therefore always present — so omission, which is
+#: what the guard used to detect, no longer catches a narration that denies the truncation it
+#: sits beside. Matching is deliberately negation-blind: "δεν είναι πλήρη" is honest and is
+#: still refused, because the template renders the same facts and fluency is the cheap thing to
+#: lose, while a negation parser would be a new way to be wrong. Prefixes are chosen not to
+#: collide with ordinary vocabulary — "πληρη" does not match "πληροφορίες", and "ολοκληρωμεν"
+#: does not match the "ολόκληρες κατηγορίες" of our own truncation caveat.
+COMPLETENESS_WORDS: tuple[str, ...] = tuple(fold(word) for word in (
+    "πλήρη", "πλήρης", "πλήρες", "πληρότητα", "ολοκληρωμέν", "όλα τα δεδομένα",
+    "complete", "the full dataset", "all the data", "entire dataset", "every record",
+))
+
 #: Never legitimate in a narration built from a fact table.
 MARKUP_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"https?://", re.IGNORECASE),

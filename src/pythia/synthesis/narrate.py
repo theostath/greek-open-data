@@ -14,7 +14,6 @@ otherwise be able to forge a system turn.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from pythia.llm import LLMClient, LLMError
@@ -22,7 +21,6 @@ from pythia.synthesis import footer as footer_mod
 from pythia.synthesis.models import FactTable, Footer, Operation
 
 _PROMPT_PATH = Path(__file__).parent / "prompts" / "narrate.md"
-_PLACEHOLDER = re.compile(r"\{(FACT|LABEL)_(\d+)\}")
 
 
 def load_prompt() -> str:
@@ -112,6 +110,22 @@ def build_placeholders(facts: FactTable, language: str) -> tuple[str, dict[str, 
     return "\n".join(lines), mapping
 
 
+def attach_limitation(text: str, limitation: str | None) -> str:
+    """Append the limitation to a narration, unless the model happened to write it already.
+
+    The model is never told the limitation, so this is what puts it in front of the reader.
+    Making presence structural rather than instructed is the whole point: asking for it cost
+    the prose (a paraphrase failed ``check_claims``), and asking for it as a token got the
+    sentence twice — once as the token, once restated. Neither is reachable from here.
+    """
+    if not limitation:
+        return text
+    body = text.strip()
+    if limitation in body:
+        return body
+    return f"{body} {limitation}".strip()
+
+
 def substitute(text: str, mapping: dict[str, str]) -> str:
     """Put the real labels and figures back after the guard has accepted the prose."""
     for token, value in mapping.items():
@@ -121,10 +135,14 @@ def substitute(text: str, mapping: dict[str, str]) -> str:
 
 def write(
     question: str, facts: FactTable, footer: Footer, *, language: str,
-    llm: LLMClient | None, operation: Operation, limitation: str | None = None,
+    llm: LLMClient | None, operation: Operation,
     max_tokens: int = 400, max_prompt_bytes: int = 16_000,
 ) -> tuple[str, dict[str, str]] | None:
-    """Ask the model for prose over placeholders. ``None`` means fall back to the template."""
+    """Ask the model for prose over placeholders. ``None`` means fall back to the template.
+
+    The limitation is deliberately absent from this prompt: ``attach_limitation`` adds it
+    afterwards, so the model spends its whole budget describing the facts.
+    """
     if llm is None or not facts.facts:
         return None
     described, mapping = build_placeholders(facts, language)
@@ -133,7 +151,6 @@ def write(
         f"Answer language: {'Greek' if language == 'el' else 'English'}\n"
         f"Operation: {operation.value}\n"
         f"Facts (use these tokens verbatim, never invent figures):\n{described}\n"
-        + (f"Limitation you MUST state: {limitation}\n" if limitation else "")
     )
     if len(user.encode("utf-8")) > max_prompt_bytes:
         return None
