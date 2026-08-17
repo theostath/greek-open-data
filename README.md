@@ -1,15 +1,18 @@
 # Pythia
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](CHANGELOG.md)
 
 > Natural-language query assistant over the Greek national open-data portal
 > ([data.gov.gr](https://data.gov.gr)). Ask a question in **Greek or English** → get the
 > right dataset, a **grounded, cited answer**, and a chart — with a freshness/provenance footer.
 
-**Status:** early development. Phases 0–7 are complete — the pipeline runs end to end on the
-command line *and* in a browser. `uv run pythia-dev` serves the web app on `127.0.0.1:8000`;
-`uv run python -m pythia.synthesis.answer --question "..."` does the same from a terminal. Both
-share one orchestration path. Phase 8 (eval & hardening) is next. See the [roadmap](#roadmap).
+**Status: v0.1.0**, the first tagged release — early but complete end to end. Phases 0–7 are
+done: the pipeline runs on the command line *and* in a browser. `uv run pythia-dev` serves the
+web app on `127.0.0.1:8000`; `uv run python -m pythia.synthesis.answer --question "..."` does
+the same from a terminal, and both share one orchestration path. Phase 8 (eval & hardening) is
+next. See the [roadmap](#roadmap), and the [changelog](CHANGELOG.md) for what this release
+contains and — just as importantly — what it does not yet do well.
 
 **Pythia is open source, Apache-2.0.** Public data deserves public tooling: the datasets this
 queries are published by Greek public bodies for anyone to use, and a tool that makes them
@@ -68,18 +71,23 @@ Local-first and reproducible: the MVP runs entirely on a laptop with no managed 
 
 ```
 config.py              # typed settings (pydantic-settings)
+CHANGELOG.md           # what each release contains, and its known limitations
 src/pythia/
   ingest/              # API discovery + catalog harvest
   retrieval/           # embed + search metadata
   planning/            # NL -> structured query
   access/              # resilient data fetch + cache
   synthesis/           # grounded answer + chart spec
-  api/                 # FastAPI routes
+  api/                 # FastAPI routes, /explore, /stats, the dev entrypoint
   eval/                # golden set + scoring
+templates/             # Jinja2 + HTMX partials
+static/                # app.css, app.js, vendored htmx + ECharts (hash-pinned)
 docs/
   api_findings.md      # curated API source of truth
   api_probe_raw.md     # auto-generated probe evidence
   adr/                 # architecture decision records
+  benchmarks/          # measured runs (e.g. the 98-min index build)
+  img/                 # interface screenshots used above
 ```
 
 ## Quickstart
@@ -188,4 +196,7 @@ All of these are **local build artifacts** (gitignored) — regenerate them with
 
 Project context, principles, and the working agreement live in
 [`CLAUDE.md`](CLAUDE.md). Code is fully type-hinted (`mypy` strict); commits follow
-[Conventional Commits](https://www.conventionalcommits.org/).
+[Conventional Commits](https://www.conventionalcommits.org/); branching follows
+[Gitflow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow), so
+pull requests target `develop` and `main` carries tagged releases only. Notable changes are
+recorded in [`CHANGELOG.md`](CHANGELOG.md).
