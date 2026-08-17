@@ -1,6 +1,6 @@
 [project]
 name = "pythia"
-version = "0.0.0"
+version = "0.1.0"
 description = "Natural-language query assistant over the Greek open-data portal (data.gov.gr)"
 readme = "README.md"
 requires-python = ">=3.11"
