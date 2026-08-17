@@ -19,6 +19,15 @@ obligations that would put them off. Contributions are welcome under the same te
 
 ---
 
+## What it looks like
+
+| | |
+| --- | --- |
+| ![Asking a question](docs/img/home.webp) | ![An answered question with its chart](docs/img/answer.webp) |
+| **Ask** — Greek, Greeklish or English. | **Answer** — the figure, its provenance, then the chart. The caveat above the chart is part of the answer, not a footnote: this table hides 75 grouped categories and says so. |
+| ![Browsing the catalogue](docs/img/explore.webp) | ![Outcome statistics](docs/img/stats.webp) |
+| **Explore** — browse by publisher and theme, filtered to the 24% of datasets that are actually readable. Asking from here pins the resource and skips retrieval entirely. | **Stats** — leads with the refusal mix, because under grounded-or-silent that ratio *is* the health signal. No question text is stored. |
+
 ## Why
 
 Greece publishes ~22,000 open datasets, but the portal's real weakness is **discoverability**,
@@ -169,8 +178,11 @@ All of these are **local build artifacts** (gitignored) — regenerate them with
       (`make answer QUESTION="..."`). The LLM never emits a quantity and never sees the
       table; a claim guard rejects any figure, magnitude-word, trend or superlative the
       computed facts do not license (ADR-0007).
-- [ ] **Phase 7** — Interface: FastAPI + HTMX chat.
-- [ ] **Phase 8** — Eval & hardening.
+- [x] **Phase 7** — Interface: one FastAPI process serving Jinja2 + HTMX (ADR-0008) —
+      `uv run pythia-dev`. Includes `/explore` (deterministic catalogue browsing, no LLM) and
+      `/stats`. Assets are vendored and hash-asserted; contrast is measured, not claimed.
+- [ ] **Phase 8** — Eval & hardening: expand the golden set beyond n=26, observability,
+      honesty checks.
 
 ## Conventions
 
