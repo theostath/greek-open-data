@@ -16,6 +16,7 @@ import re
 from decimal import Decimal
 
 from pythia.synthesis.lexicon import (
+    COMPLETENESS_WORDS,
     MARKUP_PATTERNS,
     MAXIMAL_WORDS,
     MINIMAL_WORDS,
@@ -117,6 +118,15 @@ def check_claims(
         if word in folded and "trend" not in licensed:
             return VerificationResult(ok=False, rejected_tokens=[word],
                                       reason="trend claim not licensed by the facts")
+
+    if not complete:
+        # Contradiction, not omission. The limitation is appended structurally, so it is always
+        # present; without this, "τα δεδομένα είναι πλήρη" beside it verifies clean and the
+        # reader gets a self-contradicting answer with the false half first.
+        for word in COMPLETENESS_WORDS:
+            if word in folded:
+                return VerificationResult(ok=False, rejected_tokens=[word],
+                                          reason="claims the data is whole when it is not")
 
     if limitation and fold(limitation)[:24] not in folded:
         return VerificationResult(ok=False, reason="stated limitation omitted from the answer")

@@ -135,17 +135,19 @@ def _narrate(
         return template, True, False
     drafted = narrate.write(
         question, facts, foot, language=language, llm=llm,  # type: ignore[arg-type]
-        operation=facts.operation, limitation=limitation,
+        operation=facts.operation,
         max_tokens=cfg.synthesis_max_narration_tokens,
         max_prompt_bytes=cfg.synthesis_max_prompt_bytes,
     )
     if drafted is None:
         return template, True, False
     draft, mapping = drafted
-    # Verify the placeholder text, then substitute. Checking after substitution would let a
-    # label's own digits masquerade as a licensed figure.
+    # Substitute, then attach the limitation, then verify the exact string a reader will see.
+    # Verifying the composed text is what keeps `check_claims`' limitation assertion real: the
+    # model never writes that sentence, so checking the draft alone would always reject.
+    composed = narrate.attach_limitation(narrate.substitute(draft, mapping), limitation)
     result = verify.check_claims(
-        narrate.substitute(draft, mapping), facts, foot,  # type: ignore[arg-type]
+        composed, facts, foot,  # type: ignore[arg-type]
         language=language, complete=complete, limitation=limitation,
     )
     if not result.ok:
@@ -156,7 +158,7 @@ def _narrate(
             tokens=[token[:12] for token in result.rejected_tokens[:3]],
         )
         return template, True, True
-    return narrate.substitute(draft, mapping), False, False
+    return composed, False, False
 
 
 def _status(

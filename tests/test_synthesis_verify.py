@@ -127,3 +127,34 @@ def test_omitted_limitation_is_rejected() -> None:
 def test_empty_narration_is_rejected() -> None:
     """A blank answer is not an answer."""
     assert not check_claims("   ", facts(("Χ", 1)), foot()).ok
+
+
+def test_completeness_claim_over_an_incomplete_table_is_rejected() -> None:
+    """Stating the caveat does not license contradicting it in the same breath.
+
+    The guard checked omission, never contradiction: once the limitation is appended
+    structurally it is always present, so "the data is complete" beside it would otherwise
+    verify clean and publish a self-contradicting answer.
+    """
+    limitation = "Ανακτήθηκε μέρος μόνο των δεδομένων."
+    text = f"Τα δεδομένα είναι πλήρη. ΑΙΓΥΠΤΟΣ: 7.547. {limitation}"
+    assert not check_claims(text, facts(("ΑΙΓΥΠΤΟΣ", 7547)), foot(), complete=False,
+                            limitation=limitation).ok
+
+
+def test_completeness_claim_over_a_complete_table_is_allowed() -> None:
+    """The check must not cost a truthful answer over data that really is complete."""
+    assert check_claims("Τα δεδομένα είναι πλήρη. ΑΙΓΥΠΤΟΣ: 7.547.",
+                        facts(("ΑΙΓΥΠΤΟΣ", 7547)), foot(), complete=True).ok
+
+
+def test_negated_completeness_is_also_rejected_and_that_is_deliberate() -> None:
+    """"δεν είναι πλήρη" is honest, and still refused: the guard does not parse negation.
+
+    Fail-closed is the cheap direction here — the template renders the same facts, so the
+    cost is fluency, while a negation-aware matcher would be a new way to be wrong.
+    """
+    limitation = "Ανακτήθηκε μέρος μόνο των δεδομένων."
+    text = f"Τα δεδομένα δεν είναι πλήρη. ΑΙΓΥΠΤΟΣ: 7.547. {limitation}"
+    assert not check_claims(text, facts(("ΑΙΓΥΠΤΟΣ", 7547)), foot(), complete=False,
+                            limitation=limitation).ok

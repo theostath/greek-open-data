@@ -1,34 +1,27 @@
-"""Tests for the narration boundary: what the model is shown, and what it must copy back.
+"""Tests for the narration boundary: what the model is shown, and what it may not decide.
 
-The limitation is the one sentence an answer may not lose. ADR-0007 keeps figures honest by
-handing the model opaque tokens and substituting the real strings back only after the guard
-accepts — but the limitation was the exception. It was prose the model was asked to reproduce
-from memory, while `verify.check_claims` demanded the first 24 folded characters verbatim, so
-the model paraphrased and every caveat-carrying answer degraded to the template.
+The limitation is the one sentence an answer may not lose. It used to be prose the model was
+asked to reproduce, while `verify.check_claims` demanded the first 24 folded characters
+verbatim — so the model paraphrased and every caveat-carrying answer degraded to the template.
+Measured live afterwards, asking it to copy a token instead worked (the guard accepted) but the
+model restated the sentence in its own words as well, twice out of two runs.
+
+So the limitation is no longer the model's job at all. Python appends it to the accepted
+narration, the model never learns it exists, and `check_claims` keeps asserting it on the
+published string. What that removes is the guard's *accidental* protection: an answer denying
+the truncation used to be caught for omitting the caveat, so `COMPLETENESS_WORDS` now catches
+it for what it actually is.
 """
 
 from __future__ import annotations
-
-from decimal import Decimal
 
 from tests.synthesis_fixtures import asylum_table, plan
 
 from pythia.access.models import IncompleteReason
 from pythia.llm import FakeLLM
-from pythia.synthesis import narrate
 from pythia.synthesis.answer import answer_question
-from pythia.synthesis.models import Fact, FactTable, Operation
 
-LIMITATION = "Ανακτήθηκε μέρος μόνο των δεδομένων."
-
-
-def facts() -> FactTable:
-    """A minimal ranked fact table."""
-    return FactTable(
-        facts=[Fact(label="ΑΙΓΥΠΤΟΣ", value=Decimal(7547), basis="b", n_used=4)],
-        series=[{"dim": "ΑΙΓΥΠΤΟΣ", "value": Decimal(7547)}],
-        operation=Operation.SUM, row_basis=4, dimension="Χώρα", measure="Πλήθος",
-    )
+NARRATION = "Η κατηγορία {LABEL_1} καταγράφει {FACT_1}."
 
 
 def truncated_answer(answer_text: str):  # type: ignore[no-untyped-def]
@@ -38,42 +31,35 @@ def truncated_answer(answer_text: str):  # type: ignore[no-untyped-def]
     return answer_question("πόσα αιτήματα ασύλου;", plan(), table, llm=llm), llm
 
 
-def test_limitation_is_mapped_to_a_token() -> None:
-    """The substitution table owns the token vocabulary, so the limitation belongs in it."""
-    _, mapping = narrate.build_placeholders(facts(), "el", limitation=LIMITATION)
-    assert mapping["{LIMITATION}"] == LIMITATION
-
-
-def test_no_limitation_leaves_the_token_unmapped() -> None:
-    """An unconstrained answer must not carry a token that stands for nothing."""
-    _, mapping = narrate.build_placeholders(facts(), "el")
-    assert "{LIMITATION}" not in mapping
-
-
-def test_the_model_is_shown_both_the_token_and_the_sentence() -> None:
-    """The token is what it must copy; the text is what stops it contradicting the sentence.
-
-    Showing the text is safe because every caveat is one of our own hard-coded sentences,
-    interpolating only dates and counts — no publisher-controlled cell reaches it.
-    """
-    answer, llm = truncated_answer("{LIMITATION} Η κατηγορία {LABEL_1} έχει {FACT_1}.")
+def test_the_model_is_never_shown_the_limitation() -> None:
+    """It cannot restate, soften or contradict a sentence it was never given."""
+    answer, llm = truncated_answer(NARRATION)
     sent = " ".join(message["content"] for call in llm.calls for message in call)
-    assert "{LIMITATION}" in sent
-    assert answer.caveats[0] in sent
-
-
-def test_a_narration_carrying_the_token_survives_the_guard() -> None:
-    """The defect this fixes: a caveat no longer costs the model's prose."""
-    answer, _ = truncated_answer("{LIMITATION} Η κατηγορία {LABEL_1} έχει {FACT_1}.")
     assert answer.caveats
+    assert answer.caveats[0] not in sent
+    assert "LIMITATION" not in sent
+
+
+def test_the_limitation_is_appended_to_an_accepted_narration() -> None:
+    """Presence by construction: the model's compliance is no longer what carries it."""
+    answer, _ = truncated_answer(NARRATION)
     assert answer.narration_rejected is False
     assert answer.caveats[0] in answer.text
+    assert answer.text.index(answer.caveats[0]) > 0  # the facts come first, the caveat after
 
 
-def test_a_paraphrased_limitation_is_still_rejected() -> None:
-    """The guarantee, unchanged: only our exact sentence counts as stating the limitation.
+def test_a_narration_denying_the_truncation_is_rejected() -> None:
+    """The property the injection suite protects, now enforced rather than incidental.
 
-    A regression guard rather than a driver — this is the behaviour that must survive the fix.
+    Appending the caveat unconditionally means omission can no longer betray such an answer.
     """
-    answer, _ = truncated_answer("Μέρος των δεδομένων λείπει. {LABEL_1}: {FACT_1}.")
+    answer, _ = truncated_answer(f"Τα δεδομένα είναι πλήρη. {NARRATION}")
     assert answer.narration_rejected is True
+    assert answer.caveats[0] in answer.text  # the template still states it
+
+
+def test_a_rejected_narration_still_falls_back_to_the_template() -> None:
+    """Failing closed must remain cheap rather than costing the answer."""
+    answer, _ = truncated_answer("Καταγράφηκαν 999.999 αιτήματα.")
+    assert answer.narration_rejected is True
+    assert answer.text.strip()

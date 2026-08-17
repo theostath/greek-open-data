@@ -97,15 +97,8 @@ def _join(body: str, limitation: str | None, footer: Footer, language: str) -> s
     return " ".join(parts)
 
 
-def build_placeholders(
-    facts: FactTable, language: str, *, limitation: str | None = None
-) -> tuple[str, dict[str, str]]:
-    """Describe the facts to the model using opaque tokens, and return the substitutions.
-
-    The limitation is a token like any figure. Asking the model to reproduce the sentence from
-    memory made ``verify``'s verbatim check unsatisfiable in practice — it paraphrased, and
-    every caveat-carrying answer fell back to the template.
-    """
+def build_placeholders(facts: FactTable, language: str) -> tuple[str, dict[str, str]]:
+    """Describe the facts to the model using opaque tokens, and return the substitutions."""
     lines: list[str] = []
     mapping: dict[str, str] = {}
     for index, fact in enumerate(facts.facts[:12], start=1):
@@ -114,9 +107,23 @@ def build_placeholders(
         mapping[value_token] = footer_mod.format_number(fact.value, language)
         unit = f" (unit: {fact.unit})" if fact.unit else ""
         lines.append(f"- {label_token} = {value_token}{unit}")
-    if limitation:
-        mapping["{LIMITATION}"] = limitation
     return "\n".join(lines), mapping
+
+
+def attach_limitation(text: str, limitation: str | None) -> str:
+    """Append the limitation to a narration, unless the model happened to write it already.
+
+    The model is never told the limitation, so this is what puts it in front of the reader.
+    Making presence structural rather than instructed is the whole point: asking for it cost
+    the prose (a paraphrase failed ``check_claims``), and asking for it as a token got the
+    sentence twice — once as the token, once restated. Neither is reachable from here.
+    """
+    if not limitation:
+        return text
+    body = text.strip()
+    if limitation in body:
+        return body
+    return f"{body} {limitation}".strip()
 
 
 def substitute(text: str, mapping: dict[str, str]) -> str:
@@ -128,27 +135,22 @@ def substitute(text: str, mapping: dict[str, str]) -> str:
 
 def write(
     question: str, facts: FactTable, footer: Footer, *, language: str,
-    llm: LLMClient | None, operation: Operation, limitation: str | None = None,
+    llm: LLMClient | None, operation: Operation,
     max_tokens: int = 400, max_prompt_bytes: int = 16_000,
 ) -> tuple[str, dict[str, str]] | None:
-    """Ask the model for prose over placeholders. ``None`` means fall back to the template."""
+    """Ask the model for prose over placeholders. ``None`` means fall back to the template.
+
+    The limitation is deliberately absent from this prompt: ``attach_limitation`` adds it
+    afterwards, so the model spends its whole budget describing the facts.
+    """
     if llm is None or not facts.facts:
         return None
-    described, mapping = build_placeholders(facts, language, limitation=limitation)
+    described, mapping = build_placeholders(facts, language)
     user = (
         f"Question: {question}\n"
         f"Answer language: {'Greek' if language == 'el' else 'English'}\n"
         f"Operation: {operation.value}\n"
         f"Facts (use these tokens verbatim, never invent figures):\n{described}\n"
-        + (
-            # The sentence is shown as well as the token: the model needs to know what it is
-            # asserting so the surrounding prose does not contradict it. Safe to show — every
-            # caveat is one of our own sentences, interpolating only dates and counts.
-            f"Limitation: copy the token {{LIMITATION}} into your first or second sentence.\n"
-            f"It stands for this sentence, which the rest of your answer must not contradict: "
-            f"{limitation}\n"
-            if limitation else ""
-        )
     )
     if len(user.encode("utf-8")) > max_prompt_bytes:
         return None
