@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Browse the catalogue — Pythia{% endblock %}
+
+{% block main %}
+<h1>Browse what's actually here</h1>
+
+<p class="lede">
+  Everything below is a dataset Pythia can read — {{ total }} public bodies publish CSV or
+  JSON. Datasets published only as PDFs or spreadsheets are left out, because asking about
+  them would only produce a refusal.
+</p>
+
+<p class="explore-note">
+  Greek open data is organised <strong>by the body that publishes it</strong>, which is also
+  how it is organised geographically: a municipality publishes about its own area. There is a
+  <code>spatial</code> field in the catalogue, but it says
+  <span lang="el">Ελλάδα</span> on almost every record, so it is not used here.
+</p>
+
+{% set kinds = [
+  ('municipality', 'Municipalities', 'A Δήμος publishes about its own area — this is the closest thing to browsing by place.'),
+  ('region', 'Regions', 'A Περιφέρεια covers a whole region, so its data is usually broader than a municipality’s.'),
+  ('ministry', 'Ministries', 'National scope, organised by portfolio.'),
+  ('national', 'Agencies and authorities', 'National bodies whose names carry no place. Not guessed at — see the note above.'),
+] %}
+
+{% for key, heading, blurb in kinds %}
+  {% if grouped.get(key) %}
+  <section class="explore-group">
+    <h2>{{ heading }}</h2>
+    <p class="explore-blurb">{{ blurb }}</p>
+    <ul class="publishers">
+      {% for publisher in grouped[key] %}
+      <li>
+        <a href="/explore/datasets?publisher={{ publisher.name | urlencode }}" dir="auto">
+          {{ publisher.name }}</a>
+        <span class="count num">{{ publisher.dataset_count }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+{% endfor %}
+
+<section class="explore-group">
+  <h2>By topic</h2>
+  <p class="explore-blurb">
+    The publisher's own classification, not ours. A dataset can carry more than one.
+  </p>
+  <ul class="themes">
+    {% for theme in themes %}
+    <li>
+      <a href="/explore/datasets?theme={{ theme.code | urlencode }}">{{ theme.label }}</a>
+      <span class="count num">{{ theme.dataset_count }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<p class="back"><a href="/">← Ask a question instead</a></p>
+{% endblock %}

@@ -1,0 +1,616 @@
+/*
+  Pythia — the reference desk.
+
+  Light by scene, not by default: a journalist at 16:40, in daylight, with the CMS in the next
+  tab, copying a figure into a story that files at 18:00.
+
+  Committed colour, white and blue. Light blue carries the chrome — masthead band, colophon,
+  panels; blue carries everything actionable — links, buttons, focus, the system's current
+  choice. The reading surface stays white, and nothing that reports a value is ever coloured:
+  freshness, coverage and proportion are stated in words and neutral ink, never in hue.
+*/
+
+:root {
+  /* Every surface is sampled from the painting, not chosen beside it. Percentile sampling of
+     its 707,810 blue pixels puts the median at oklch(0.429 0.053 237) and the whole blue range
+     between L 0.31 and L 0.62 — the artwork contains no light blues at all. That is why the
+     chrome is dark: a pale tint cannot "match its intensity", it can only sit next to it.
+     Every ratio below is measured in tests/test_api_contrast.py, not asserted. */
+  --bg: oklch(1 0 0);
+
+  /* The chrome bands — masthead and colophon — at the painting's own median blue, carrying
+     light text. Inside a band the accent inverts: --band-link plays the role blue plays on
+     white, because the accent at L=0.48 on a L=0.43 band is invisible (1.1:1). */
+  --band: oklch(0.43 0.055 237);
+  --band-ink: oklch(1 0 0);
+  --band-ink-quiet: oklch(0.86 0.030 237);
+  --band-link: oklch(0.86 0.055 237);
+  --band-link-hover: oklch(0.94 0.031 237);
+  --band-rule: oklch(0.56 0.045 237);
+
+  /* Light surfaces, each as saturated as its own contrast duty allows. The wash carries the
+     suggestion buttons and is the more chromatic of the two because it is a control; the panel
+     behind a citation stays calmer. Both are capped by the same thing: a blue link sitting on
+     them still owes 4.5:1, which is what stops either going further. */
+  --surface-sunken: oklch(0.89 0.057 237);
+  --accent-wash: oklch(0.87 0.068 237);
+
+  /* Ink clears 4.5:1 with room to spare. Quiet ink is smaller and calmer, never lighter than
+     legible — held to the same 4.5:1, as is the placeholder. */
+  --ink: oklch(0.24 0.016 237);
+  --ink-quiet: oklch(0.45 0.020 237);
+  --rule: oklch(0.86 0.030 237);
+  --rule-strong: oklch(0.75 0.040 237);
+
+  /* The accent is a verb: actions, the current selection, focus. Never a data value, never a
+     chart series, never a section marker.
+
+     Blue at L=0.48 measures 5.87:1 against white — past the 3:1 WCAG 2.2 1.4.11 asks of a
+     focus ring and of a control's own boundary, and dark enough that the button label is white
+     rather than a dark ink (6.63:1 on the fill, 8.94:1 on hover). It alone stays at hue 255
+     while every surface moved to the painting's 237: chroma barely moves luminance, but the
+     sRGB gamut narrows sharply toward 237, and matching the painting exactly would have forced
+     max chroma from 0.160 down to about 0.11 — a visibly duller button bought for a hue shift
+     nobody can perceive on a control that small. The old oklch(0.50 0.170 255) was in fact
+     **outside sRGB** (red channel -0.003) and had been silently gamut-mapped by the browser. */
+  --accent: oklch(0.48 0.155 255);
+  --accent-hover: oklch(0.41 0.135 255);
+  --accent-ink: oklch(1 0 0);
+
+  /* A form control's visible boundary is non-text contrast (1.4.11), so it needs 3:1 — and it
+     owes that on the wash it sits on as well as on white. */
+  --control-border: oklch(0.56 0.028 237);
+
+  --measure: 68ch;
+  --step--1: 0.875rem;
+  --step-0: 1rem;
+  --step-1: 1.125rem;
+  --step-2: 1.383rem;
+  --step-3: 1.65rem;
+  --step-4: 2rem;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4.5rem;
+
+  /* Canvas grain. An inline SVG so it costs no request and raises no licence question — the
+     project can only vendor Apache-2.0-compatible assets, and generated geometry has no
+     licence to inherit. Desaturated fractal noise at 0.055 opacity: enough to give the field
+     a material and stop the gutters reading as void, far too faint to compete with a figure.
+
+     The opacity is load-bearing, not taste. tests/test_api_contrast.py computes the darkest
+     surface this grain can produce and re-measures every text pair against it — raise 0.055
+     and the suite fails rather than shipping a page that got quietly harder to read. */
+  --canvas: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)' opacity='0.055'/%3E%3C/svg%3E");
+
+  --radius: 4px;
+  --motion: 180ms;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1); /* ease-out-quart: no bounce, no elastic */
+
+  /* One humanist sans, carrying full Greek including accented capitals and final sigma.
+     A system stack, because local-first forbids fetching a webfont — and a mono face would
+     render a Greek publisher name in fallback glyphs, which reads as corrupted data. */
+  --font: system-ui, -apple-system, "Segoe UI", "Noto Sans", Roboto, "Helvetica Neue",
+          Arial, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+  background-image: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: var(--step-0);
+  line-height: 1.55;
+  padding: var(--space-6) var(--space-5) var(--space-8);
+}
+
+main, .masthead-inner, .colophon-inner { max-width: var(--measure); margin-inline: auto; }
+
+/* The gutters continue the painting down both sides of the column. Two things keep this from
+   being a legibility problem rather than a design one:
+
+   --gutter is the space actually left over once the measure and a --space-7 buffer are taken
+   out, so the strips can never reach the text — and it collapses to 0 on a narrow viewport,
+   which is how they hide themselves without a breakpoint. The inner edge of each strip fades
+   to transparent in the image's own alpha channel, because a background layer cannot carry a
+   CSS mask; that is why they dissolve into the page instead of ending on a hard vertical line.
+   Fixed attachment means the field stays put while the column scrolls over it. */
+@media (min-width: 62rem) {
+  body {
+    --gutter: clamp(0px, calc((100vw - var(--measure)) / 2 - var(--space-7)), 20rem);
+    background-image:
+      var(--canvas),
+      url("/static/img/field-left.webp"),
+      url("/static/img/field-right.webp");
+    background-position: 0 0, left center, right center;
+    background-size: auto, var(--gutter) 100%, var(--gutter) 100%;
+    background-repeat: repeat, no-repeat, no-repeat;
+    background-attachment: scroll, fixed, fixed;
+  }
+}
+
+/* The two chrome bands. They bleed past the body padding to the viewport edge, and they carry
+   the painting's own dark blue, so the white reading field sits framed between them. Chrome
+   only: no band ever sits behind a figure, a chart or a provenance value.
+
+   Everything inside a band runs light-on-dark, including the focus ring — the accent is
+   invisible here (1.1:1 against the band), so white takes over that job at 8.02:1. */
+.masthead, .colophon {
+  background-color: var(--band);
+  background-image: var(--canvas);
+  color: var(--band-ink-quiet);
+  margin-inline: calc(var(--space-5) * -1);
+  padding-inline: var(--space-5);
+}
+.masthead a, .colophon a { color: var(--band-link); }
+.masthead a:hover, .colophon a:hover {
+  color: var(--band-link-hover);
+  text-decoration-color: var(--band-link-hover);
+}
+.masthead :focus-visible, .colophon :focus-visible { outline-color: var(--band-ink); }
+
+h1, h2, h3 { line-height: 1.25; text-wrap: balance; margin: 0 0 var(--space-3); }
+h1 { font-size: var(--step-4); letter-spacing: -0.02em; }
+h2 { font-size: var(--step-2); letter-spacing: -0.01em; }
+h3 { font-size: var(--step-1); }
+p { margin: 0 0 var(--space-4); text-wrap: pretty; }
+/* Links are blue because a link is the most common actionable thing on the page — this is the
+   Accent Is A Verb rule applied literally, not an exception to it. 5.87:1 on white and 4.60:1
+   in the worst case (grained chrome band), so blue is legitimate as text here — the amber it
+   replaced could never have been link text at all. */
+a { color: var(--accent); text-underline-offset: 0.2em; text-decoration-thickness: 1px; }
+a:hover { color: var(--accent-hover); text-decoration-color: var(--accent-hover); }
+
+/* Every figure is tabular so a column can be scanned, not decoded one line at a time. */
+.num, .facts td, .progress-elapsed .num, .staleness { font-variant-numeric: tabular-nums; }
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+.skip {
+  position: absolute; left: -9999px; top: var(--space-2);
+  background: var(--bg); padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--accent); border-radius: var(--radius);
+}
+.skip:focus { left: var(--space-4); z-index: 10; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ---- Masthead ---------------------------------------------------------- */
+
+.masthead {
+  margin-top: calc(var(--space-6) * -1);
+  margin-bottom: var(--space-6);
+  padding-block: 0 var(--space-5);
+}
+
+/* The painted band: a figure-free crop of the owner-supplied canvas, run full bleed across the
+   top of every page. It holds no text on purpose. Setting the wordmark over it would have meant
+   a 0.55 black scrim to keep white legible against the near-white lamp specks (measured), and
+   that scrim destroys the impasto it exists to show. Text-free, it owes no ratio and needs no
+   scrim, so the paint runs at full strength. Nothing here reports a value. */
+.masthead-art {
+  height: clamp(4.5rem, 11vw, 9rem);
+  margin-inline: calc(var(--space-5) * -1);
+  margin-bottom: var(--space-5);
+  background: url("/static/img/masthead.webp") center 58% / cover no-repeat;
+  border-bottom: 1px solid var(--band-rule);
+}
+
+/* The product name is the masthead, so it claims the whole measure rather than sitting as a
+   small link above it. Ink, not blue: at this size the accent would stop reading as "you can
+   act on this" and start reading as a logo colour, which is what the accent must never become.
+   2.5rem is a one-off display size, deliberately above --step-4 and not added to the shared
+   scale — nothing else on any page is set at it. The vw clamp is what stops it overflowing
+   the column on a narrow viewport. */
+.wordmark {
+  color: var(--band-ink);
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  font-size: min(2.5rem, 11vw);
+  font-weight: 680;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  text-decoration: none;
+  margin-bottom: var(--space-3);
+}
+
+/* The rule runs from the name out to the edge of the measure. Blue at rest is permitted here
+   because the whole wordmark is the home link. On the dark band the accent cannot do that job
+   at all (1.1:1), so the band's light blue carries it. */
+.wordmark::after {
+  content: "";
+  flex: 1 1 auto;
+  align-self: flex-end;
+  margin-bottom: 0.24em;
+  height: 0;
+  border-top: 2px solid var(--band-link);
+  transition: border-color var(--motion) var(--ease);
+}
+.wordmark:hover::after { border-color: var(--band-link-hover); }
+.standfirst {
+  color: var(--band-ink-quiet); font-size: var(--step--1); max-width: 58ch; margin: 0;
+}
+
+/* ---- Ask --------------------------------------------------------------- */
+
+.ask { margin-bottom: var(--space-6); }
+.ask-label { display: block; font-size: var(--step--1); margin-bottom: var(--space-2); }
+.ask-row { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+.ask input {
+  flex: 1 1 22ch;
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg);
+  padding: var(--space-3);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  transition: border-color var(--motion) var(--ease);
+}
+.ask input::placeholder { color: var(--ink-quiet); opacity: 1; }
+.ask input:hover { border-color: var(--ink-quiet); }
+.ask input:focus-visible { border-color: var(--accent); outline-offset: 1px; }
+
+button {
+  font: inherit;
+  font-weight: 560;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-5);
+  cursor: pointer;
+  transition: background-color var(--motion) var(--ease);
+}
+button:hover { background: var(--accent-hover); }
+button:active { transform: translateY(1px); }
+button[disabled], button[aria-busy="true"] { opacity: 0.55; cursor: progress; }
+
+/* The primary action carries real press feedback: flat at rest, lifting under the pointer on
+   hover, then settling on press. The shadow is a *response* to interaction and never a resting
+   decoration, which is what the Flat Until Interactive rule licenses. Only this button gets the
+   size bump — the press physics stay the same vocabulary as every other button.
+   0.85rem is the one off-scale value here; the row's flex stretch matches the input to it. */
+.ask-row button {
+  font-size: var(--step-1);
+  padding: 0.85rem var(--space-6);
+  transition: background-color var(--motion) var(--ease),
+              transform var(--motion) var(--ease),
+              box-shadow var(--motion) var(--ease);
+}
+.ask-row button:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 8px oklch(0 0 0 / 0.16);
+}
+.ask-row button:active {
+  transform: translateY(1px);
+  box-shadow: none;
+  transition-duration: 60ms;
+}
+
+.ask-hint { color: var(--ink-quiet); font-size: var(--step--1); margin: var(--space-2) 0 0; }
+
+/* ---- Empty state ------------------------------------------------------- */
+
+.empty h2 { font-size: var(--step-1); }
+.empty h3 {
+  font-size: var(--step-0); font-weight: 600;
+  margin-top: var(--space-6); margin-bottom: var(--space-3);
+}
+.lede { color: var(--ink-quiet); }
+
+.examples, .plain { list-style: none; padding: 0; margin: 0; }
+.examples li { margin-bottom: var(--space-2); }
+
+/* Example and re-ask controls are secondary: same shape as the primary button, quieter fill,
+   so the vocabulary stays consistent without competing with Ask. */
+.example {
+  background: var(--accent-wash);
+  color: var(--ink);
+  border-color: var(--control-border);
+  text-align: start;
+  padding: var(--space-2) var(--space-3);
+  font-weight: 400;
+}
+.example:hover { border-color: var(--accent); }
+
+.plain li {
+  color: var(--ink-quiet); font-size: var(--step--1);
+  padding-block: var(--space-2); border-top: 1px solid var(--rule);
+}
+
+.health {
+  margin-top: var(--space-6); padding: var(--space-3);
+  border: 1px solid var(--rule-strong); border-radius: var(--radius);
+  font-size: var(--step--1);
+}
+
+/* ---- Progress ---------------------------------------------------------- */
+
+.progress { padding-block: var(--space-4); }
+.progress-head { font-size: var(--step-1); margin-bottom: var(--space-2); }
+.progress-detail { color: var(--ink-quiet); font-size: var(--step--1); max-width: 58ch; }
+
+/* Skeleton content, not a centred spinner: it shows the shape of what is coming. */
+.skeleton { display: grid; gap: var(--space-3); margin-block: var(--space-5); }
+.sk { display: block; background: var(--surface-sunken); border-radius: var(--radius); }
+.sk-line { height: 1rem; }
+.sk-short { width: 62%; }
+.sk-block { height: 5.5rem; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .sk { animation: pulse 1.6s var(--ease) infinite; }
+  @keyframes pulse { 50% { background: oklch(0.855 0.062 237); } }
+}
+
+.progress-elapsed { color: var(--ink-quiet); font-size: var(--step--1); margin: 0; }
+.progress-note { display: block; }
+
+/* ---- Answer ------------------------------------------------------------ */
+
+.answer, .refusal { padding-top: var(--space-4); border-top: 1px solid var(--rule); }
+
+.claim {
+  font-size: var(--step-2);
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  max-width: 60ch;
+}
+
+/* Caveats limit what may be said, so they sit at the claim and are never collapsed. */
+.caveats { list-style: none; padding: 0; margin: 0 0 var(--space-5); }
+.caveats li {
+  font-size: var(--step--1);
+  padding: var(--space-2) 0 var(--space-2) var(--space-5);
+  border-top: 1px solid var(--rule);
+  position: relative;
+}
+.caveats li::before {
+  content: "!"; position: absolute; left: 0; top: var(--space-2);
+  width: 1.1rem; height: 1.1rem; line-height: 1.1rem; text-align: center;
+  font-size: 0.7rem; font-weight: 700;
+  border: 1px solid var(--rule-strong); border-radius: 50%;
+  color: var(--ink-quiet);
+}
+
+.facts { border-collapse: collapse; width: 100%; margin-bottom: var(--space-5); }
+.facts caption { text-align: start; }
+.facts th, .facts td {
+  text-align: start; padding: var(--space-2) var(--space-3) var(--space-2) 0;
+  border-top: 1px solid var(--rule); vertical-align: baseline;
+}
+.facts thead th {
+  font-size: var(--step--1); font-weight: 600; color: var(--ink-quiet);
+  border-top: none; border-bottom: 1px solid var(--rule-strong);
+}
+.facts tbody th { font-weight: 500; }
+.facts td.num { font-weight: 600; white-space: nowrap; }
+.facts .basis { color: var(--ink-quiet); font-size: var(--step--1); }
+
+.seams { list-style: none; padding: 0; margin: 0 0 var(--space-5); }
+.seams li {
+  font-size: var(--step--1); color: var(--ink-quiet);
+  padding-block: var(--space-2); border-top: 1px dashed var(--rule-strong);
+}
+
+/* ---- Provenance: the signature component ------------------------------- */
+
+.provenance {
+  background: var(--surface-sunken);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  margin-bottom: var(--space-5);
+  font-size: var(--step--1);
+}
+.provenance dl { margin: 0; display: grid; gap: var(--space-2); }
+.prov-row { display: grid; grid-template-columns: 7.5rem 1fr; gap: var(--space-3); }
+.provenance dt { color: var(--ink-quiet); }
+.provenance dd { margin: 0; }
+.provenance .quiet, .range { color: var(--ink-quiet); }
+.incomplete { display: block; font-weight: 600; }
+
+/* Four neutral steps. The sentence beside them is the accessible statement; both come from
+   footer.py's thresholds so they cannot disagree. */
+.staleness { display: inline-flex; gap: 2px; margin-right: var(--space-2); vertical-align: 1px; }
+.step {
+  width: 6px; height: 10px; border-radius: 1px;
+  border: 1px solid var(--rule-strong); background: transparent;
+}
+.step.on { background: var(--ink-quiet); border-color: var(--ink-quiet); }
+
+@media (max-width: 34rem) {
+  .prov-row { grid-template-columns: 1fr; gap: var(--space-1); }
+  .provenance dt { font-size: 0.8125rem; }
+}
+
+/* ---- Chart ------------------------------------------------------------- */
+
+.chart { margin: 0 0 var(--space-6); }
+/* ECharts measures its container at init and renders into it, so the box needs a real size
+   before the script runs — an auto-height container would render a zero-pixel canvas. */
+.chart-target { width: 100%; height: 340px; }
+@media (max-width: 34rem) { .chart-target { height: 280px; } }
+.chart figcaption {
+  display: grid; gap: var(--space-1);
+  font-size: var(--step--1); color: var(--ink-quiet);
+  padding-top: var(--space-2); border-top: 1px solid var(--rule);
+}
+.chart-title { color: var(--ink); font-weight: 600; }
+.chart-fallback { font-size: var(--step--1); }
+
+/* ---- Refusal ----------------------------------------------------------- */
+
+.refusal h2 { max-width: 24ch; }
+.refusal .claim { font-size: var(--step-1); color: var(--ink-quiet); }
+.matched { font-size: var(--step-0); }
+.next { color: var(--ink-quiet); font-size: var(--step--1); max-width: 60ch; }
+
+.searched { font-size: var(--step--1); }
+.term {
+  background: var(--accent-wash);
+  border-bottom: 1px solid var(--accent);
+  padding: 0.1em 0.3em;
+}
+
+.near-misses h3 { font-size: var(--step-0); font-weight: 600; margin-bottom: var(--space-2); }
+.near-misses ul { list-style: none; padding: 0; margin: 0 0 var(--space-5); }
+.near-misses li { padding-block: var(--space-2); border-top: 1px solid var(--rule); }
+
+.formats { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: baseline; }
+.fmt {
+  font-size: var(--step--1); padding: 0.1em 0.45em;
+  border: 1px solid var(--rule-strong); border-radius: var(--radius);
+}
+
+.reask { margin-top: var(--space-5); }
+
+/* ---- Explore ------------------------------------------------------------
+   A directory, not a card grid. Rows separated by hairlines, count right-aligned in tabular
+   figures so the column can be scanned — which is the whole reason to look at this page. */
+
+.explore-note {
+  color: var(--ink-quiet); font-size: var(--step--1);
+  padding: var(--space-3) 0; border-block: 1px solid var(--rule);
+}
+.explore-group { margin-top: var(--space-7); }
+.explore-group h2 { font-size: var(--step-1); margin-bottom: var(--space-1); }
+.explore-blurb { color: var(--ink-quiet); font-size: var(--step--1); max-width: 62ch; }
+
+.publishers, .themes { list-style: none; padding: 0; margin: 0; }
+.publishers li, .themes li {
+  display: flex; gap: var(--space-3); align-items: baseline;
+  justify-content: space-between;
+  padding: var(--space-2) 0; border-top: 1px solid var(--rule);
+}
+.publishers .count, .themes .count { color: var(--ink-quiet); font-size: var(--step--1); }
+
+/* Two columns once there is room; municipalities alone run to 35 entries. */
+@media (min-width: 46rem) {
+  .publishers { display: grid; grid-template-columns: 1fr 1fr; column-gap: var(--space-6); }
+}
+
+.dataset-list { list-style: none; padding: 0; margin: var(--space-5) 0 0; }
+.dataset { padding: var(--space-4) 0; border-top: 1px solid var(--rule); }
+.dataset-title { font-size: var(--step-0); font-weight: 600; margin-bottom: var(--space-1); }
+.dataset-meta {
+  color: var(--ink-quiet); font-size: var(--step--1);
+  display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: baseline;
+  margin-bottom: var(--space-3);
+}
+.dataset-actions { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: center; }
+.dataset-actions form { margin: 0; }
+.dataset-actions button { padding: var(--space-2) var(--space-4); font-size: var(--step--1); }
+.dataset-source { font-size: var(--step--1); color: var(--ink-quiet); }
+.empty-list { color: var(--ink-quiet); }
+
+.pager {
+  display: flex; gap: var(--space-4); align-items: baseline;
+  margin-top: var(--space-6); padding-top: var(--space-3); border-top: 1px solid var(--rule);
+}
+.pager-position { color: var(--ink-quiet); font-size: var(--step--1); margin-inline: auto; }
+.back { margin-top: var(--space-6); font-size: var(--step--1); }
+
+/* ---- Stats --------------------------------------------------------------
+   Bars are neutral, not blue: the accent means "actionable", and a proportion is neither an
+   action nor the system's current choice. Every bar is labelled with its own number, so the
+   bar is redundant reinforcement rather than the only channel. */
+
+.stat-block { margin-top: var(--space-7); }
+.stat-block h2 { font-size: var(--step-1); }
+.stat-block h3 {
+  font-size: var(--step-0); font-weight: 600;
+  margin-top: var(--space-5); margin-bottom: var(--space-2);
+}
+.stat-note { color: var(--ink-quiet); font-size: var(--step--1); max-width: 62ch; }
+
+.stat-table { border-collapse: collapse; width: 100%; margin-block: var(--space-3); }
+.stat-table th, .stat-table td {
+  text-align: start; padding: var(--space-2) var(--space-3) var(--space-2) 0;
+  border-top: 1px solid var(--rule); vertical-align: baseline;
+}
+.stat-table th { font-weight: 500; }
+.stat-table td.num { text-align: end; white-space: nowrap; width: 6rem; }
+.bar-cell { width: 45%; }
+.bar {
+  display: block; height: 0.55rem; min-width: 1px;
+  background: var(--ink-quiet); border-radius: 1px;
+}
+
+.stat-grid {
+  display: grid; gap: var(--space-3) var(--space-5);
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  margin-block: var(--space-3);
+}
+.stat-grid dt { color: var(--ink-quiet); font-size: var(--step--1); }
+.stat-grid dd { margin: 0; font-size: var(--step-2); font-weight: 600; }
+
+/* ---- Notices ----------------------------------------------------------- */
+
+.notice {
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  padding: var(--space-5);
+}
+.notice h2 { font-size: var(--step-1); }
+.notice p { margin-bottom: var(--space-3); }
+.notice p:last-child { margin-bottom: 0; }
+.notice .detail code {
+  font-size: 0.8125rem; color: var(--ink-quiet);
+  overflow-wrap: anywhere;
+}
+
+/* ---- Colophon ---------------------------------------------------------- */
+
+.colophon {
+  margin-top: var(--space-8);
+  margin-bottom: calc(var(--space-8) * -1);
+  padding-block: var(--space-5) var(--space-6);
+  color: var(--band-ink-quiet); font-size: var(--step--1);
+}
+.colophon p { margin: 0; }
+
+/* The grain is a screen material, not information. It comes off wherever the surface stops
+   being a screen or the user has asked the OS to take over the colours — and the answer is
+   destined for print, so paper gets the clean plane. */
+@media print, (forced-colors: active) {
+  body, .masthead, .colophon { background-image: none; }
+  .masthead-art { display: none; }
+}
+
+/* 200 KB of painting is the heaviest thing this page loads and all of it is decoration, so a
+   connection that has asked for less gets none of those bytes — grain included, since it is
+   the field the strips were there to enrich. */
+@media (prefers-reduced-data: reduce) {
+  body, .masthead, .colophon { background-image: none; }
+  .masthead-art { display: none; }
+}
+
+/* Flat at rest; every transition has a reduced-motion alternative. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  button:active { transform: none; }
+  .ask-row button:hover, .ask-row button:active { transform: none; }
+}

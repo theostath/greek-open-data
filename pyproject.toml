@@ -1,8 +1,22 @@
 [project]
 name = "pythia"
-version = "0.0.0"
+version = "0.1.0"
 description = "Natural-language query assistant over the Greek open-data portal (data.gov.gr)"
+readme = "README.md"
 requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+classifiers = [
+    # No "License ::" classifier: PEP 639 deprecates it once `license` carries an SPDX
+    # expression, and some build backends reject having both.
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: Greek",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
 dependencies = [
     "pydantic-settings>=2.0",
     "httpx>=0.27",
@@ -12,12 +26,21 @@ dependencies = [
     "chromadb>=0.5",
     "truststore>=0.9",
     "pyyaml>=6.0",
+    "fastapi>=0.141.1",
+    "uvicorn[standard]>=0.48.0",
+    "jinja2>=3.1.6",
+    "python-multipart>=0.0.32",
 ]
 
+[project.scripts]
+# `uv run pythia-dev` starts the app with a readable preflight. Exists because `make` is not
+# available on every dev box here, and the Makefile target is a one-line wrapper around this.
+pythia-dev = "pythia.api.dev:main"
+
 [tool.uv]
-# This environment terminates TLS with a custom root CA (corporate proxy);
-# use the OS trust store so uv can reach PyPI.
-native-tls = true
+# This environment terminates TLS with a custom root CA (corporate proxy); use the OS trust
+# store so uv can reach PyPI. Renamed from `native-tls` in uv 0.11, which deprecated it.
+system-certs = true
 
 [dependency-groups]
 dev = [
@@ -41,6 +64,11 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency injection *is* a call in an argument default; B008 is a real warning
+# everywhere else, so the exemption is listed per-callable rather than disabling the rule.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Form", "fastapi.Query", "fastapi.Path"]
 
 [tool.mypy]
 python_version = "3.11"

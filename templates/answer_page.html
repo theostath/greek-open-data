@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}{{ question }} — Pythia{% endblock %}
+
+{% block main %}
+{# A permalink is reached by direct navigation, so it renders a whole document, not a
+   fragment. The ask control stays, pre-filled: the next question is always one edit away. #}
+<h1 class="asked" dir="auto">{{ question }}</h1>
+
+{% include "partials/_ask.html" %}
+
+<div id="result" aria-live="polite">
+  {% include "partials/_result.html" %}
+</div>
+{% endblock %}

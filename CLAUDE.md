@@ -9,7 +9,7 @@ This file is persistent context for Claude Code. Keep it accurate and concise; p
 
 ## 1. Mission & scope
 
-**Mission:** Make Greece's ~9,500 open datasets usable by anyone who can type a question.
+**Mission:** Make Greece's ~21,900 open datasets usable by anyone who can type a question.
 The portal's real weakness is *discoverability* — not data volume. This product attacks
 discoverability with retrieval + grounded synthesis.
 
@@ -21,6 +21,13 @@ discoverability with retrieval + grounded synthesis.
 
 **Out of scope (for now):** user accounts, multi-tenant hosting, write-back to any
 government system, cross-dataset statistical modeling/forecasting, mobile apps.
+
+**Licence: Apache-2.0, and that is a deliberate product decision.** Public data deserves public
+tooling. Two practical consequences for the code: every dependency and every vendored asset
+must carry an Apache-2.0-compatible licence (so no GPL, and no proprietary bundle without an
+explicit open-source grant recorded in an ADR), and third-party components whose terms depend
+on this project being open source — Highcharts is the live example — are only usable while the
+`LICENSE` file stays. Check licences before adding a dependency, not after.
 
 ---
 
@@ -57,8 +64,12 @@ government system, cross-dataset statistical modeling/forecasting, mobile apps.
   Model id in config, not inline. Anthropic is retained **only** for RAGAS dev-eval
   (ADR-0003). Superseded the original Claude Sonnet choice per `plan.md` direction change.
 - **HTTP:** `httpx` (async), with `tenacity` for retries.
-- **Charts:** emit Vega-Lite JSON specs; render client-side.
-- **Testing:** `pytest`. **Lint/format:** `ruff`. **Types:** `mypy` on `src/`.
+- **Charts:** emit **Apache ECharts** option objects (Apache-2.0, ADR-0009); render
+  client-side. Highcharts was ruled out: its NonCommercial licence conflicts with this
+  project's Apache-2.0 grant.
+- **Testing:** `pytest`. **Lint/format:** `ruff`. **Types:** `mypy --strict` over `src/` **and
+  root `config.py`** — all three are configured in `pyproject.toml`, so run them bare
+  (`uv run mypy`, no path argument; passing one skips `config.py`, where every setting lives).
 
 If you believe a swap is warranted, write a 3-line ADR in `docs/adr/` and proceed.
 
@@ -66,18 +77,28 @@ If you believe a swap is warranted, write a 3-line ADR in `docs/adr/` and procee
 
 ## 4. Repository layout
 
-```
+```text
 .
 ├── CLAUDE.md
-├── pyproject.toml
+├── README.md
+├── plan.md                      # phase-by-phase build plan (the roadmap's long form)
+├── pyproject.toml               # deps + ruff/mypy/pytest config (no setup.cfg, no tox)
 ├── Makefile
 ├── .env.example                 # DATA_GOV_GR_TOKEN=, ANTHROPIC_API_KEY=, etc.
-├── config.py                    # typed settings (pydantic-settings), reads env
+├── config.py                    # typed settings (pydantic-settings), reads env — ROOT, not src/
+├── .github/workflows/ci.yml     # ruff + mypy + pytest on py3.11 + py3.12 (§11)
+├── .claude/skills/eval-gate/    # the §9/§11 retrieval eval ritual, incl. a preflight script
 ├── data/
-│   ├── catalog.sqlite           # harvested metadata (gitignored)
+│   ├── catalog.sqlite           # harvested metadata + datasets_fts (gitignored)
 │   └── chroma/                  # vector index (gitignored)
+├── specs/                       # per-phase implementation specs (Phases 4, 5, 6)
+├── tests/                       # pytest suite; mirrors the module layout below
+│   ├── synthesis_fixtures.py    # shared Phase 6 tables, built from live-probed resources
+│   └── fixtures/                # captured API payloads
 ├── src/pythia/
 │   ├── net.py                   # route TLS via the OS trust store (proxy CA)
+│   ├── llm.py                   # LLM Protocol + Ollama /api/chat client + FakeLLM (ADR-0004)
+│   ├── logging_setup.py         # structured logging + secret redaction
 │   ├── ingest/                  # Phase 1–2: API discovery + catalog harvest
 │   │   ├── client_probe.py      # one-off endpoint discovery, writes findings to docs/
 │   │   ├── harvest.py           # pulls all dataset metadata -> SQLite
@@ -89,25 +110,59 @@ If you believe a swap is warranted, write a 3-line ADR in `docs/adr/` and procee
 │   │   ├── embed.py             # e5 embeddings + incremental Chroma index
 │   │   ├── lexical.py           # FTS5 BM25 + RRF fusion
 │   │   ├── index.py             # `make index`: build dense + lexical indexes
+│   │   ├── rerank.py            # cross-encoder reorder, DEFAULT-OFF (ADR-0002)
 │   │   └── search.py            # find_dataset(question) -> ranked candidates
 │   ├── planning/                # Phase 4: NL -> structured query
-│   │   └── planner.py
+│   │   ├── planner.py           # make_plan(): normalize -> retrieve -> select -> one LLM call
+│   │   ├── normalize.py         # Greeklish->Greek + language detection (ADR-0005)
+│   │   ├── select.py            # dataset + CSV/JSON resource choice (deterministic)
+│   │   ├── models.py            # QueryPlan contract
+│   │   └── prompts/             # extract_plan.md, disambiguate.md
 │   ├── access/                  # Phase 5: resilient data fetch
-│   │   ├── data_client.py       # token, retries, encoding, schema sniff
-│   │   └── cache.py             # SQLite-backed response cache
-│   ├── synthesis/               # Phase 6: answer + chart spec
-│   │   └── answer.py
-│   ├── api/                     # Phase 7: FastAPI routes
-│   │   └── app.py
+│   │   ├── data_client.py       # orchestrator: guard -> cache -> transport -> sniff
+│   │   ├── guard.py             # scheme/host/IP policy (pure)
+│   │   ├── transport.py         # the only I/O; manual redirects, streaming caps
+│   │   ├── detect.py            # magic bytes vs declared format (pure)
+│   │   ├── sniff.py             # decode, dialect, banner rows, type inference (pure)
+│   │   ├── catalog.py           # resource + provenance lookups
+│   │   ├── models.py            # TableData honesty contract (ADR-0006)
+│   │   ├── cache.py             # SQLite-backed response cache
+│   │   └── cache_schema.sql     # committed cache schema
+│   ├── synthesis/               # Phase 6: grounded answer + chart + footer (ADR-0007)
+│   │   ├── answer.py            # orchestrator + refusal paths
+│   │   ├── coerce.py            # Greek decimal comma, periods, sentinels (pure)
+│   │   ├── bind.py              # column roles, series identity, params (pure)
+│   │   ├── compute.py           # THE ONLY SOURCE OF NUMBERS (pure)
+│   │   ├── chart.py             # deterministic ECharts option + validate_spec (pure)
+│   │   ├── narrate.py           # placeholder prompt + deterministic template
+│   │   ├── verify.py            # the claim guard (pure)
+│   │   ├── footer.py            # provenance, coverage, staleness (pure)
+│   │   ├── lexicon.py           # versioned Greek/English word lists
+│   │   ├── models.py            # Answer/Fact/Binding contract
+│   │   └── prompts/             # narrate.md — the ONLY synthesis prompt
+│   ├── api/                     # Phase 7: the interface (ADR-0008)
+│   │   ├── app.py               # FastAPI app, lifespan, routes, Origin check, CSP
+│   │   ├── service.py           # Pipeline + RecoveryContext — the ONE orchestration path
+│   │   ├── jobs.py              # bounded, TTL-evicting, thread-safe JobStore
+│   │   ├── view.py              # AnswerView: the publish whitelist (plan never ships)
+│   │   ├── browse.py            # /explore: deterministic SQL, no LLM, no embeddings
+│   │   └── dev.py               # `uv run pythia-dev`: preflight + serve + open a browser
 │   └── eval/                    # Phase 3+: golden set + scoring
 │       ├── golden_questions.yaml
 │       └── run_eval.py
-├── templates/                   # Jinja2 + HTMX
-├── static/
+├── templates/                   # Jinja2 + HTMX (Phase 7)
+│   └── partials/                # _ask, _progress, _result, _answer, _refusal, _footer,
+│                                # _chart, _error, _expired
+├── static/                      # app.css, app.js, vendor/ (htmx + echarts, hash-pinned)
 └── docs/
     ├── api_findings.md          # OUTPUT of Phase 1 — the source of truth for endpoints
-    └── adr/                     # short architecture decision records
+    ├── api_probe_raw.md         # raw probe evidence behind api_findings.md
+    ├── benchmarks/              # measured runs (e.g. embedding-index-build.md)
+    └── adr/                     # 0001–0007; short architecture decision records
 ```
+
+Everything marked **NOT YET CREATED** is Phase 7 scaffolding described here for intent only —
+do not assume those files exist.
 
 ---
 
@@ -160,17 +215,50 @@ be **verified in Phase 1**, not assumed. Record findings in `docs/api_findings.m
 
 ## 7. Commands
 
-(Create these in Phase 0; keep this list in sync with the Makefile.)
+Keep this list in sync with the Makefile.
 
-```
-make setup        # uv sync + install hooks
-make probe        # run ingest/client_probe.py, write docs/api_findings.md
+```text
+make setup        # uv sync (pre-commit hooks: not wired yet, Phase 8)
+make probe        # run ingest/client_probe.py, write docs/api_probe_raw.md
 make harvest      # pull catalog metadata into data/catalog.sqlite
-make index        # build/refresh the Chroma vector index
-make eval         # run the golden-question eval, print retrieval metrics
-make dev          # uvicorn with reload
-make check        # ruff + mypy + pytest
+make index        # build/refresh the Chroma + FTS5 indexes (incremental)
+make eval         # run the golden-question RETRIEVAL eval, print metrics
+make fetch RESOURCE_ID=<id>   # Phase 5: fetch one resource -> typed table
+make cache-purge  # drop access-cache rows past the TTL ceiling
+make answer QUESTION="..."    # Phase 6: grounded answer + chart + footer
+                              # (add RESOURCE_ID=<id> to bypass retrieval)
+make dev          # Phase 7: preflight, serve on 127.0.0.1:8000, open a browser
+make check        # ruff + mypy + pytest — the gate in §9
 ```
+
+Every target is a one-line `uv run` wrapper; run those directly when `make` is unavailable
+(see the Makefile). **`make` is not installed on the current dev box**, so in practice:
+
+```bash
+uv run pythia-dev          # == make dev. Preflights the catalogue, index and Ollama first,
+                           # names the fix for whatever is missing, then serves and opens a
+                           # browser once the port is actually accepting (the ~2.2 GB model
+                           # load means that is 30–60 s after launch, not immediately).
+                           # --no-browser / --no-reload / --skip-preflight when scripting.
+``` **Run pytest from the repo root** — `pyproject` sets `pythonpath = ["."]`,
+which is what lets tests import both `pythia.*` and `tests.synthesis_fixtures`.
+
+```bash
+uv run pytest tests/test_synthesis_verify.py -q             # one file
+uv run pytest tests/test_synthesis_verify.py::test_name -q  # one test
+uv run pytest -q -k "synthesis and not honesty"             # by keyword
+```
+
+**Always run the suite offline** — `HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 uv run pytest -q`,
+which is what `make check` and CI both do. `test_embed.py` and `test_search.py` load real
+e5-small weights, and without those vars the loader fires a live HEAD request to
+huggingface.co per module; those requests fail intermittently and error 7–10 tests at random.
+The weights are cached, so offline fetches nothing and the run is both deterministic and
+faster (~27 s vs ~40 s). A bare `uv run pytest` is the single most likely reason you see
+red on unmodified code.
+
+The suite is 335 tests. Prefer a targeted file while iterating, and run `make check` before
+committing.
 
 ---
 
@@ -184,8 +272,7 @@ Status legend: [ ] not started · [~] in progress · [x] done
       datasets, anonymous reads, DCAT-AP metadata; `package_search` caps at `rows=15000`). Legacy
       `/api/v1/query/{id}` data API is **GONE (404)**. Data is per-resource: **DataStore**
       (`datastore_search`, ~1% of resources, `limit≤32000`) or **file download** (302 → short-lived
-      Azure Blob; the common case). `datastore_search_sql` disabled. **Note:** mission §1 says
-      ~9,500 datasets; live count is ~21,930.
+      Azure Blob; the common case). `datastore_search_sql` disabled.
 - [x] **Phase 2 — Ingestion:** `harvest.py` walks `package_search` → `normalize.py` → SQLite
       (`db.py`, schema in `ingest/schema.sql`). Harvested **21,806 datasets / 106,678 resources**
       (124 non-dataset/inactive skipped); `last_updated`=`metadata_modified` on every row. Note:
@@ -197,12 +284,12 @@ Status legend: [ ] not started · [~] in progress · [x] done
       (el 0.56 / en 0.52 / greeklish 0.30 MRR). Greeklish is the weak spot — next levers:
       e5-large swap, reranker (ADR-0002), Greeklish→Greek transliteration. TLS to Hugging Face
       goes through the OS trust store (`pythia/net.py`).
-- [~] **Phase 4 — Planning:** `make_plan()` (`planning/planner.py`) → typed `QueryPlan`
+- [x] **Phase 4 — Planning:** `make_plan()` (`planning/planner.py`) → typed `QueryPlan`
       (dataset + CSV/JSON resource + validated intent params) via normalize → retrieve →
       select → one LLM call. LLM = local **Qwen/Ollama** behind a `Protocol`+fake
       (`pythia/llm.py`, ADR-0004; Anthropic now RAGAS-only). Greeklish→Greek transliteration
       + `en`-safe language detection (`planning/normalize.py`, ADR-0005). Grounded-or-silent
-      via an LLM relevance gate + a degraded score-floor fallback. **113 tests green.**
+      via an LLM relevance gate + a degraded score-floor fallback. **117 tests green.**
       **Eval gate RUN 2026-07-28** (n=26, e5-large): baseline MRR **0.515**; +normalization
       **0.544** (greeklish 0.319→0.429, `el`/`en` unchanged → ADR-0005 **accepted for the
       no-reranker config**); +reranker **0.652** but **~28 s/query** on CPU → ADR-0002
@@ -211,10 +298,74 @@ Status legend: [ ] not started · [~] in progress · [x] done
       switching to Ollama's native `/api/chat` with `think:false` (76 s → 10 s).
       Relevance is now gated **before** resource selection, so `unsupported` means
       "relevant but no CSV/JSON" and off-topic questions correctly return `no_match`.
-- [ ] **Phase 5 — Access:** resilient data client + SQLite cache + schema sniffing.
-- [ ] **Phase 6 — Synthesis:** grounded answer + Vega-Lite spec + freshness footer.
-- [ ] **Phase 7 — Interface:** FastAPI + HTMX chat.
+      **End-to-end on the golden set (n=26): 6 MATCHED on the correct dataset, 0 matched
+      on a wrong one, 6 UNSUPPORTED (right dataset, no CSV/JSON), 12 NO_MATCH.** Zero
+      wrong matches — grounded-or-silent holds. The ceiling is retrieval R@1 (12/26 put
+      the right dataset first) and resource format, **not** the planner: both are
+      Phase 3 / Phase 5 concerns.
+- [x] **Phase 5 — Access:** `fetch_resource()`/`fetch_for_plan()` (`access/data_client.py`)
+      → typed `TableData` via DataStore (`sort=_id asc`, paged) or file download. Layered
+      pure modules: `guard` (scheme/host/IP policy, manual ≤3 redirects — **75% of CSV/JSON
+      resources are off-portal**, and `localhost:11434` runs Ollama), `detect` (magic bytes;
+      stops an HTML 404 parsing as a table), `sniff` (Greek-restricted codecs, dialect,
+      type inference — no silent coercion). SQLite cache keyed on
+      `(resource_id, key_field, key_value)` with a TTL ceiling; incomplete bodies never
+      cached. **Honesty contract:** `TableData.complete` has no default and is validated
+      against `incomplete_reason`. Carries `publisher` for the Phase 6 footer. ADR-0006.
+      **215 tests green**; verified live on portal CSV (cp1253 + `;` auto-detected),
+      DataStore (24,390/24,390 rows) and an off-portal municipal endpoint.
+      Run with `make fetch RESOURCE_ID=<id>`.
+- [x] **Phase 6 — Synthesis:** `answer_question()` (`synthesis/answer.py`) → typed `Answer`
+      (`answered | partial | refused`) with a chart option and a mandatory provenance footer.
+      **The LLM never emits a quantity and never sees the table** — it gets opaque placeholders
+      and the real strings are substituted back after `verify.check_claims`, which gates
+      numerals, number-words, trend/superlative language, wrong-label figures and markup
+      (ADR-0007). Only `MEASURE` columns aggregate; `LATEST` handles running totals.
+      Designed against **four live-probed resources**: an embedded `ΣΥΝΟΛΟ` row makes a naive
+      asylum total exactly 2× (147,374 vs 73,687); the ELSTAT index is ~715 interleaved series
+      truncated at **2016-06** of a 2010-01→2026-01 span; `OBS_VALUE='86,6'` is typed `text`;
+      `BASE_PER`/`Arithmese`/`areaid` are `number` but not measures. **335 tests green**,
+      including a guard-recall eval (14 adversarial narrations, all rejected) that runs inside
+      `make check`. Run with `make answer QUESTION="..."`.
+- [x] **Phase 7 — Interface:** one FastAPI process serving Jinja2 + HTMX (**ADR-0008**, which
+      reverses `plan.md`'s June Vercel direction change — local-first won). `make dev` →
+      `127.0.0.1:8000`. **`Pipeline` (`api/service.py`) is the single orchestration path**,
+      shared by the CLI and the web app; ADR-0004 is the argument for that. Questions run on a
+      bounded pool (`api_max_concurrent_jobs=2`) and the browser polls; the terminal fragment
+      stops polling by omitting `hx-trigger`. `api/view.py` is a **publish whitelist** — a
+      field added to `QueryPlan` later is invisible by default, and `Answer.plan` never
+      reaches the browser. **Three refusal shapes, not two:** a `MATCHED` plan that still
+      refuses is never framed as a near miss, guarded in *both* `build_recovery_context` and
+      `to_view`. Provenance renders inside the answer, before the chart, so the quotable unit
+      never scrolls away from its citation. Job ids carry a process epoch, so a lost result
+      says "restarted" rather than the untrue "expired". Security: an **Origin check** (a
+      loopback bind is not an access control) plus CSP/nosniff/no-referrer; assets vendored
+      and **hash-asserted in the suite**; **WCAG contrast is measured, not asserted** — the
+      DESIGN.md accent anchor failed 1.4.11 at 2.76:1 and the ramp was resolved at L=0.660.
+      **450 tests green.** Verified live: `/healthz` reads 21,806/21,806/21,806 with the LLM
+      reachable, cross-origin POST → 403, a real Greek question end-to-end in 40 s. Start it
+      with **`uv run pythia-dev`** (`make` is not installed on the primary dev box).
 - [ ] **Phase 8 — Eval & hardening:** retrieval metrics, honesty checks, observability.
+
+**Queued between Phase 7 and Phase 8 — discuss before building** (detail in `REPO_REPORT.md`
+Part 3, which is untracked; issue links below survive it):
+
+- **Guided exploration by publisher, place and theme — issue #18.** A catalogue probe showed
+  `spatial_text` is unusable (7,600 of 9,101 populated rows just say `Ελλάδα`) and free-text
+  place matching is *misleading* (Ιωάννινα → 0 datasets, while Δήμος Ιωαννιτών publishes
+  plenty). **Geography lives in `org_title`:** Δήμος Χανίων has 2,228 datasets against 86
+  text mentions of Χανιά. Browse must be deterministic SQL over publisher/theme, filtered to
+  the 24.4% of datasets with a CSV/JSON resource, handing off via `resource_id` — which
+  **bypasses retrieval**, the measured ceiling (R@1 0.46). Do **not** route a "what data do you
+  have from X?" question through `answer_question`: it is a catalogue question, not a data
+  question, and `make_plan` would return `no_match`.
+- **LLM chart tooling / Highcharts — no issue yet, framing unsettled.** Two blockers before
+  any code: Highcharts is **proprietary for commercial use** (Vega/Vega-Lite are BSD), and more
+  importantly a tool that lets the model **emit chart specs** would put it back in contact with
+  the numbers and route around `validate_spec` — breaking ADR-0007's central property and
+  Principle #1 with it. The contract-preserving version has the LLM pick a chart *kind* from an
+  enum while `chart.py` still builds and validates the spec. Needs `/spec` + the judge panel +
+  an ADR, since it supersedes part of ADR-0007.
 
 **Always work the lowest unchecked phase unless told otherwise.** Update this section when a
 phase completes.
@@ -231,9 +382,76 @@ secrets leaked; and any new external-API assumption is reflected in `docs/api_fi
 
 ## 10. Open questions (resolve as you learn; don't block on them silently)
 
-- Is the relaunched catalog CKAN, and does it expose full per-resource schema?
-- Does the data API still use the legacy token + `query/{dataset}` pattern post-relaunch?
-- Which datasets are tabular-and-fresh enough to be the demo set for Phase 6?
+- ~~Is the relaunched catalog CKAN, and does it expose full per-resource schema?~~ **Resolved
+  (Phase 1):** CKAN **2.11.3**, Action API. Per-resource schema only for the ~1% of resources
+  in the DataStore; for the rest the declared format is all there is — and ADR-0006 records it
+  being observably wrong, which is why `access/detect.py` sniffs magic bytes.
+- ~~Does the data API still use the legacy token + `query/{dataset}` pattern post-relaunch?~~
+  **Resolved (Phase 1):** **gone (404).** Data is per-resource, via `datastore_search` or a
+  file download (302 → short-lived Azure Blob, the common case). Reads are anonymous;
+  `DATA_GOV_GR_TOKEN` is an unused defensive placeholder.
+- ~~Which datasets are tabular-and-fresh enough to be the demo set?~~ **Resolved (Phases 6–7):**
+  Phase 6 was designed against four live-probed resources; Phase 7's empty-state examples are
+  three questions **verified live to return ANSWERED** (`api/app.py::EXAMPLES`). **Re-verify
+  those after any retrieval change** — R@1 is what decides them, and one of the three
+  originally chosen turned out to refuse.
 - ~~Embedding strategy: title+description only, or include column/field names?~~ **Resolved
   (Phase 3):** embed `title + notes + tags` plus their English translations (the `embed_text`
   column); per-resource field names deferred — revisit if eval shows a gap.
+
+Still genuinely open:
+
+- **Does guided browsing beat better retrieval?** R@1 is 0.46 and issue #18 routes *around*
+  retrieval rather than improving it. Both are worth doing; which pays back sooner is untested.
+- **Can the LLM be given chart control without breaking ADR-0007?** See §8's queued note — the
+  enum-only version preserves the contract, the spec-emitting version does not.
+
+---
+
+## 11. Git workflow — Gitflow (adopted 2026-07-29)
+
+Remote: <https://github.com/theostath/greek-open-data> · default branch: **`develop`**
+
+**The branching model itself lives in the global `~/.claude/CLAUDE.md` ("Git Branching
+Model — Gitflow") and is not duplicated here.** It defines the five branch types
+(`main`, `develop`, `feat|fix|docs|chore/*`, `release/*`, `hotfix/*`), which branch
+merges where, tagging, and the `--no-ff` / branch-deletion rules. Read it first.
+
+Repo-specific notes only:
+
+### Per-change checklist here
+
+1. `git checkout develop && git pull`
+2. `git checkout -b feat/<slug>` (never off `main` — only `hotfix/*` does that)
+3. Open a **GitHub Issue** using the structure in the global CLAUDE.md; record the
+   branch name and origin in it before implementing.
+4. Small, focused **Conventional Commits**. No AI attribution trailers.
+5. `make check` green + tests for new logic. Any retrieval/planning change **must** also
+   report `make eval` numbers in the PR/commit — see §9.
+6. PR **targets `develop`** with `Closes #<issue>`.
+7. After merge, delete the branch locally and on the remote.
+
+### Eval-gated changes and releases
+
+Because §9 ties "done" to eval metrics, a `release/*` branch is the right place to
+re-run `make eval` on the release candidate and record the numbers in the tag message —
+retrieval quality is the product here, so a release without current metrics is untagged
+work. Note the eval is only meaningful on a **tombstone-free** Chroma collection (§8,
+Phase 4 notes); a rebuilt-by-upsert index makes the numbers non-reproducible.
+
+### CI
+
+`.github/workflows/ci.yml` runs `ruff` + `mypy` + `pytest` on **pushes to `main` and
+`develop`, and PRs targeting either** — the global guideline names `main` only, which under
+Gitflow would miss every day-to-day PR. Two repo-specific details:
+
+- **Matrix on Python 3.11 and 3.12.** `pyproject` declares `requires-python >=3.11` but
+  local development only ever runs 3.12, so 3.11 would otherwise be an unverified claim.
+- **Tests run with `HF_HUB_OFFLINE=1` / `TRANSFORMERS_OFFLINE=1`**, after a cached
+  pre-download of e5-small (only `test_embed.py` and `test_search.py` need real weights).
+  Hugging Face HEAD requests are intermittently flaky, and offline runs are verified to
+  produce identical results.
+- **Actions are SHA-pinned and the token scope is `contents: read`.** A mutable major tag can
+  be repointed at new code by its owner; the job reads the tree and needs nothing more. Note
+  `uv run mypy` follows `[tool.mypy] files`, so the CI type gate covers `src/` and
+  `config.py` but **not** `tests/`.

@@ -12,10 +12,10 @@ tracks where we actually are and what's next._
 | 2 | Ingestion (harvest + normalize → SQLite) | ✅ done, committed |
 | 3 | Retrieval (embeddings, hybrid search, golden eval) | ✅ done, committed (e5-small) |
 | 3.1 | e5-large swap + incremental indexing | ✅ done, committed |
-| 4 | Planning (NL → structured query) | 🟡 eval gate run 2026-07-28; one honesty bug left |
-| 5 | Access (resilient data client + cache) | ⬜ not started |
-| 6 | Synthesis (grounded answer + chart + footer) | ⬜ not started |
-| 7 | Interface (FastAPI + HTMX) | ⬜ not started |
+| 4 | Planning (NL → structured query) | ✅ done, merged (eval gate run, 0 wrong matches) |
+| 5 | Access (resilient data client + cache) | ✅ done (ADR-0006, verified live) |
+| 6 | Synthesis (grounded answer + chart + footer) | ✅ done |
+| 7 | Interface (FastAPI + Jinja2 + HTMX, one process) | ✅ done (ADR-0008, verified live) |
 | 8 | Eval & hardening | ⬜ not started |
 
 ## Direction changes (decided 2026-06-02 — supersede CLAUDE.md §3)
@@ -34,15 +34,18 @@ OpenAI-compatible API at `http://localhost:11434/v1` (native `/api/chat` also av
 - [ ] Update `CLAUDE.md §3` (LLM line) + write an ADR.
 - [ ] Build-time check: ensure `ollama serve` is running and confirm the exact model tag.
 
-### Frontend: Vercel app (replaces server-rendered Jinja2 + HTMX)
-- [ ] Build the frontend as a Vercel-hosted app (e.g. Next.js/React) instead of Jinja2+HTMX.
-- [ ] Rescope Phase 7: FastAPI becomes a **JSON API** the frontend calls (decoupled
-      frontend/backend), not a server-rendered template app.
-- [ ] Update `CLAUDE.md §3` (Frontend line) + write an ADR.
-- [ ] ⚠️ **Resolve the hosting tension first:** Vercel is cloud-hosted, but the backend +
-      Qwen (`localhost:11434`) + SQLite/Chroma indexes are **local-first**. Either the Vercel
-      UI calls a locally-run backend (personal/dev use; backend not publicly deployed) or the
-      backend must be hosted (which breaks the local-first MVP). Decide before building.
+### ~~Frontend: Vercel app (replaces server-rendered Jinja2 + HTMX)~~
+~~- [ ] Build the frontend as a Vercel-hosted app (e.g. Next.js/React) instead of Jinja2+HTMX.~~
+~~- [ ] Rescope Phase 7: FastAPI becomes a **JSON API** the frontend calls.~~
+~~- [ ] ⚠️ **Resolve the hosting tension first.**~~
+
+**Reversed 2026-08-06 (ADR-0008):** the hosting tension is resolved *against* Vercel. The
+blocker this entry left open was never resolvable while staying local-first — Qwen on
+`localhost:11434`, a ~2.2 GB embedding model and two local SQLite databases cannot be reached
+from a cloud-hosted page without either exposing the laptop or re-hosting the whole stack,
+which contradicts Core Principle #3. Phase 7 ships as originally specified in `CLAUDE.md §3`:
+**one FastAPI process serving Jinja2 + HTMX**, no build step, no second runtime. A JSON API
+for third-party clients is deferred, not cancelled.
 
 ## What's done (committed)
 
@@ -109,17 +112,34 @@ OpenAI-compatible API at `http://localhost:11434/v1` (native `/api/chat` also av
   `qwen3.5:9b` is a reasoning model and returned empty `content` over the OpenAI-compatible
   endpoint. Fixed via native `/api/chat` + `think:false` (76 s → 10 s).
 
-### Known issues to fix before Phase 4 closes
+### Phase 4 end-to-end result (golden set through `make_plan`, n=26)
+
+| Outcome | Count |
+|---|---|
+| `MATCHED` on the **correct** dataset | **6** |
+| `MATCHED` on the **wrong** dataset | **0** ← no silent-wrong-answer risk |
+| `UNSUPPORTED` (correct dataset, no CSV/JSON) | 6 |
+| `NO_MATCH` (retrieval missed) | 12 |
+
+**Grounded-or-silent holds perfectly: the planner never once matched confidently on the
+wrong dataset.** Retrieval placed the correct dataset first for 12/26 (46%, consistent
+with R@1 0.42–0.46); exactly half of those are then blocked by the dataset having no
+CSV/JSON resource. So the ceiling is retrieval quality and resource format — **not the
+planner**. Phase 4 is closed on that basis.
+
+### Carried forward (not Phase 4 blockers)
 
 1. ~~**Honesty bug (ordering):** `select_resource` ran before the LLM relevance gate.~~
    **Fixed 2026-07-29:** relevance is decided first, so `UNSUPPORTED` now means "relevant
    but no CSV/JSON" and *"what is the capital of France?"* returns `NO_MATCH`.
-2. **Golden set is too small.** At n=26 one question ≈ 0.04 MRR — larger than several
-   effects being compared. Per-language slices are n=7–12. Expand before trusting any
-   further retrieval/planning refinement.
-3. **Retrieval quality on real questions looks weaker than the golden set suggests** — the
-   smoke run's `el`/`en` questions both retrieved irrelevant datasets (the LLM gate
-   correctly refused them). Worth investigating alongside (2).
+2. **Golden set is too small (Phase 8).** At n=26 one question ≈ 0.04 MRR — larger than
+   several effects being compared. Per-language slices are n=7–12.
+3. **Retrieval R@1 is the binding constraint (Phase 3 follow-up).** 12/26 questions never
+   surface the right dataset. The reranker fixes much of this (R@1 0.42 → 0.62) but costs
+   ~28 s/query; finding the quality/latency knee across `rerank_pool` sizes is the
+   cheapest open lever.
+4. **Half the correctly-retrieved datasets have no tabular resource (Phase 5).** Expect
+   `UNSUPPORTED` to stay common until non-CSV/JSON handling is considered.
 
 ### Chroma tombstone finding
 
@@ -140,16 +160,35 @@ retained as `datasets_tombstoned` and can be deleted once the new one is trusted
   (disabled).
 
 ### Phase 6 — Synthesis (`src/pythia/synthesis/answer.py`)
-- Grounded answer + Vega-Lite chart spec + freshness/provenance footer (source dataset,
+- Grounded answer + chart option + freshness/provenance footer (source dataset,
   publisher, `last_updated`). Grounded-or-silent: never fabricate; "no dataset covers this"
   is a valid answer. **Synthesis LLM = local Qwen via Ollama** (see Direction changes).
 
-### Phase 7 — Interface — **Vercel frontend + FastAPI JSON API** (see Direction changes)
-- FastAPI exposes the query/answer endpoints as JSON; the chat UI is a Vercel-hosted app
-  (Next.js/React) calling it. Resolve the local-first vs cloud-hosting tension first.
+### Phase 7 — Interface — **one FastAPI process serving Jinja2 + HTMX** (ADR-0008)
+~~Vercel frontend + FastAPI JSON API.~~ **Reversed 2026-08-06:** local-first won; see the
+Direction-changes note above. `make dev` serves the app on `127.0.0.1:8000`. `Pipeline`
+(`api/service.py`) is the one orchestration path shared by the CLI and the web app;
+`api/view.py` is a publish whitelist so `Answer.plan` never reaches the browser. Three refusal
+shapes render distinctly — a `MATCHED`-plan refusal is never framed as a near miss. Assets are
+vendored and hash-pinned; an Origin check and CSP cover the browser-reachability that
+`access/guard.py:67` warned about.
+
+### Queued between Phase 7 and Phase 8 — decide before building
+- **Guided exploration by publisher, place and theme (issue #18).** Geography lives in
+  `org_title`, not `spatial_text` (which is 90% "Ελλάδα") and not in free text (Ιωάννινα → 0
+  mentions while its municipality publishes plenty). Deterministic SQL, filtered to the 24.4%
+  of datasets with CSV/JSON, handing off via `resource_id` — which bypasses retrieval, the
+  measured ceiling.
+- **LLM chart tooling / Highcharts (no issue yet).** Licensing (proprietary vs BSD Vega) and,
+  more importantly, whether letting the model emit chart specs breaks ADR-0007's "the LLM never
+  touches the numbers". Needs `/spec` + judge panel + an ADR.
 
 ### Phase 8 — Eval & hardening
 - Broaden eval, honesty checks, observability/structured logging review.
+- **Retrieval remains the highest-value lever** (R@1 0.46 — only 12/26 golden questions put the
+  right dataset first). Issue #13 (expand the golden set beyond n=26) is the prerequisite for
+  trusting any improvement: at n=26 one question is worth ~0.04 MRR overall and ~0.14 in the
+  greeklish slice.
 
 ## Operational / infra TODOs
 

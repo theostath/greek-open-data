@@ -1,0 +1,67 @@
+{#
+  Claim -> provenance -> chart, deliberately in that order.
+
+  The chart is the tallest element on the page, so placing it between the claim and its
+  citation is exactly what pushes them apart. PRODUCT.md: "an answer that has scrolled away
+  from its source has failed." Keeping the quotable unit — sentence, figures, dataset,
+  publisher, freshness, coverage — together is worth inverting the usual order for.
+#}
+<article class="answer" lang="{{ view.language }}" dir="auto">
+
+  <h2 class="visually-hidden">Answer</h2>
+
+  <p class="claim">{{ view.text }}</p>
+
+  {% if view.caveats %}
+  {# At the point of the claim, in words. These limit what may be said, so they are not
+     footnotes and must not be collapsed behind a control. #}
+  <ul class="caveats">
+    {% for caveat in view.caveats %}<li>{{ caveat }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if view.facts %}
+  {# Show the seams: the user audits the machine's arithmetic rather than trusting it. #}
+  <table class="facts">
+    <caption class="visually-hidden">Figures and how each was derived</caption>
+    <thead>
+      <tr><th scope="col">Figure</th><th scope="col">Value</th><th scope="col">Basis</th></tr>
+    </thead>
+    <tbody>
+      {% for fact in view.facts %}
+      <tr>
+        <th scope="row">{{ fact.label }}</th>
+        <td class="num">{{ fact.value }}{% if fact.unit %} {{ fact.unit }}{% endif %}</td>
+        <td class="basis">{{ fact.basis }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% if view.narration_rejected or view.narration_degraded or view.planning_degraded %}
+  <ul class="seams">
+    {% if view.narration_rejected %}
+    <li>The generated wording failed verification against the table, so the sentence above is
+      the deterministic one.</li>
+    {% elif view.narration_degraded %}
+    <li>Wording is templated rather than written: the language model was unavailable.</li>
+    {% endif %}
+    {% if view.planning_degraded %}
+    <li>This dataset was chosen on a retrieval score alone, without the model confirming it
+      fits the question. Check the source before quoting.</li>
+    {% endif %}
+  </ul>
+  {% endif %}
+
+  {# Unconditional. Mirrors the dataclass invariant rather than trusting it: a template that
+     drops the footer must fail the suite, not merely review. #}
+  {% if not view.footer %}
+    {{ fail("a non-refused answer reached the template without provenance (Principle #2)") }}
+  {% endif %}
+  {% include "partials/_footer.html" %}
+
+  {% if view.chart %}
+    {% include "partials/_chart.html" %}
+  {% endif %}
+</article>

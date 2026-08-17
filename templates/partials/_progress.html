@@ -1,0 +1,54 @@
+{#
+  Polling fragment. Polling stops by the terminal fragment simply NOT carrying hx-trigger —
+  there is no header that ends it.
+
+  "planning" spans retrieval AND the LLM call: make_plan() does both inside one callback-free
+  function, so a finer breakdown would be narration the code cannot back up.
+#}
+<section class="progress"
+         hx-get="/ask/{{ job.id }}"
+         hx-trigger="every 1s"
+         hx-swap="outerHTML">
+
+  <h2 class="progress-head">
+    {% if job.status.value == "queued" %}
+      Waiting for a free worker
+    {% elif job.stage == "planning" %}
+      Searching the catalogue
+    {% elif job.stage == "fetching" %}
+      Reading the dataset
+    {% elif job.stage == "synthesising" %}
+      Checking the figures
+    {% else %}
+      Working
+    {% endif %}
+  </h2>
+
+  <p class="progress-detail">
+    {% if job.status.value == "queued" %}
+      Another question is using the model right now. Yours starts as soon as a slot frees up.
+    {% elif job.stage == "planning" %}
+      Matching your wording against ~21,800 datasets, then confirming the best one really
+      covers the question.
+    {% elif job.stage == "fetching" %}
+      Downloading from the publisher. Some public bodies host their own files and are slow.
+    {% elif job.stage == "synthesising" %}
+      Computing the figure and verifying every claim against the table before showing it.
+    {% endif %}
+  </p>
+
+  {# Skeleton, not a spinner: it shows the shape of what is coming. #}
+  <div class="skeleton" aria-hidden="true">
+    <span class="sk sk-line"></span>
+    <span class="sk sk-line sk-short"></span>
+    <span class="sk sk-block"></span>
+  </div>
+
+  {# A single stage can legitimately last ~90 s, so elapsed time is what distinguishes a
+     working fetch from a hang. #}
+  <p class="progress-elapsed">
+    <span class="num">{{ elapsed }}</span>s elapsed
+    <span class="progress-note">— a cold model load or a slow publisher can take a couple of
+      minutes</span>
+  </p>
+</section>

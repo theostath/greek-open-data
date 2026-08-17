@@ -205,3 +205,60 @@ A full `make harvest` confirmed the above in practice:
   legacy `query/{dataset}` endpoint (gone). All anonymous.
 - **Open for a later probe:** confirm DataStore field types across more resources; verify the
   Azure SAS expiry window; spot-check a non-UTF-8 straggler actually exists in the wild.
+
+---
+
+## 7. Measured fetch surface (added 2026-07-29, Phases 5–6)
+
+Step 12 of the Phase 5 spec required this and it was not done at the time. Measured over the
+**6,154 active CSV/JSON resources** the access layer can be asked to fetch, from
+`data/catalog.sqlite`:
+
+| Property | Value | Consequence |
+|---|---|---|
+| Host **not** `data.gov.gr` | **4,671 (75%)** across ~51 hosts | The `302 → Azure Blob` model in §3 covers a minority |
+| Top off-portal hosts | `gis.crete.gov.gr` (624), `gisservices.chania.gr` (407), `naxos.getmap.gr` (303) | Small municipal GeoServers, not a CDN |
+| Plain `http://` | 109 | MITM-able data cited as official; off by default |
+| No file extension in the path | 4,333 (70%) | Live query APIs (WFS `GetFeature`), not files |
+| `last_modified` NULL | 4,580 (74%) | The cache key degrades to `metadata_modified` |
+| Both freshness fields NULL | **0** | A TTL-only cache branch would be unreachable |
+| `size` NULL or ≤ 1 | 4,822 (78%) | **Declared size is unusable** for pre-flight checks |
+| Largest declared size | **182,278,591 B (~174 MiB)** | Six resources exceed `access_max_bytes` |
+| DataStore-active | 412 of 1,029 tabular (**4.7%**) | The "~1%" elsewhere is against all 106,678 resources |
+
+**Encoding is not always UTF-8.** The first live portal CSV fetched decoded as **cp1253** with
+a `;` delimiter, so §5's "no mojibake observed" understates the risk. Greek codecs
+(`utf-8`, `cp1253`, `iso-8859-7`) are the only candidates the decoder will accept.
+
+### DataStore mangles Greek column names to ASCII
+
+Not previously recorded anywhere. `datastore_search` returns field ids transliterated out of
+the publisher's Greek headers, so what arrives is neither Greek nor English:
+
+| Published header | `fields[].id` returned |
+|---|---|
+| ΥΠΗΚΟΟΤΗΤΑ | `UPEKOOTETA` |
+| ΑΡΙΘΜΟΣ ΑΙΤΗΜΑΤΩΝ | `ARIThMOS AITEMATON` |
+| ΙΔΡΥΜΑ | `Idruma` |
+| Καθηγήτρια/Καθηγητές Πρώτης Βαθμίδας | `(1) Kathegetria/Kathegetes Protes Bathmidas` |
+
+Consequence for anything downstream: **column names are machine artefacts, not labels**. They
+are evidence about a column, never a statement about it (ADR-0007).
+
+### CSV exports carry banner and footnote rows
+
+Greek government CSVs routinely place a merged title above the real header, sometimes with a
+sub-label continuation row, and a footnote row at the bottom. Observed on resource
+`6c79a5b6-75fb-4682-816a-f45f9d43e57d`. The parser skips them and reports `header_trusted`
+(ADR-0006 amendment, 2026-07-29).
+
+### SDMX-shaped statistical resources hold many series in one table
+
+`105b17a2-a689-4df0-af19-8aa4d52517ca` (ΕΛΣΤΑΤ producer price index) is 124,485 rows spanning
+2010-01 → 2026-01, but its first 2,000 rows alone carry **143 distinct `ACTIVITY` × 5
+`INDICATOR`** values — roughly 715 separate series stacked in one long-format table, with
+`FREQ`, `SEASONAL_ADJUST`, `PRODUCT` and `OBS_STATUS` constant. `TIME_PERIOD` is therefore
+**not unique**, and values use a decimal comma (`86,6`). Paging by `_id asc` with a 50,000-row
+budget stops at **2016-06**.
+
+**Still unmeasured:** the Azure SAS expiry window (§6).

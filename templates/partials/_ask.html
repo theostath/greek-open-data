@@ -1,0 +1,18 @@
+{# The ask control. Persists above the result; re-asking replaces the result, never appends. #}
+<form class="ask" hx-post="/ask" hx-target="#result" hx-swap="innerHTML" hx-disabled-elt="find button">
+  <label class="ask-label" for="question">Your question</label>
+  <div class="ask-row">
+    <input
+      type="text"
+      id="question"
+      name="question"
+      value="{{ question|default('', true) }}"
+      placeholder="π.χ. πόσες πυρκαγιές το 2023;"
+      maxlength="500"
+      autocomplete="off"
+      dir="auto"
+      required>
+    <button type="submit">Ask</button>
+  </div>
+  <p class="ask-hint">Greek, Greeklish or English. One question at a time.</p>
+</form>
