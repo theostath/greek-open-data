@@ -63,6 +63,12 @@ def allowed_tokens(facts: FactTable | None, footer: Footer | None, language: str
     for fact in facts.facts if facts else []:
         allowed.add(normalise_number(str(fact.value), language))
         allowed.add(str(fact.n_used))
+        # A label that is itself a numeral — a year, a code — is a computed string from the
+        # fact table, not a figure the model invented, and `render_template` prints it
+        # unguarded. Excluding it made "2016: 753" sayable by the template and forbidden to
+        # the model. Binding a value to the wrong label stays `_check_label_binding`'s job.
+        if _PURE_NUMBER.match(fact.label.strip()):
+            allowed.add(normalise_number(fact.label, language))
     if facts and facts.publisher_stated_total is not None:
         allowed.add(normalise_number(str(facts.publisher_stated_total.value), language))
     if facts:

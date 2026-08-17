@@ -129,6 +129,26 @@ def test_empty_narration_is_rejected() -> None:
     assert not check_claims("   ", facts(("Χ", 1)), foot()).ok
 
 
+def test_a_numeric_dimension_label_may_be_cited() -> None:
+    """A year-dimensioned table makes every label a numeral.
+
+    Labels are computed strings from the fact table, not figures the model produced, and
+    `render_template` prints "2016: 753" unguarded. Excluding them from `allowed_tokens` made
+    the citation sayable by the template and forbidden to the model — measured live on
+    "How many road traffic accidents were recorded?", where 2016, 2015 and 2014 were all
+    rejected as figures absent from the facts.
+    """
+    result = check_claims("2016 with 753, and 2015 with 746.",
+                          facts(("2016", 753), ("2015", 746)), foot(), language="en")
+    assert result.ok, result.reason
+
+
+def test_a_number_that_is_neither_a_value_nor_a_label_is_still_rejected() -> None:
+    """Admitting labels must not admit arbitrary numerals."""
+    assert not check_claims("2016 with 753, and 1999 with 12.",
+                            facts(("2016", 753)), foot(), language="en").ok
+
+
 def test_completeness_claim_over_an_incomplete_table_is_rejected() -> None:
     """Stating the caveat does not license contradicting it in the same breath.
 
