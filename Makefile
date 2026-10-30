@@ -1,4 +1,4 @@
-.PHONY: setup probe harvest index eval fetch cache-purge answer dev check
+.PHONY: setup probe harvest index eval eval-planner fetch cache-purge answer dev check
 
 RESOURCE_ID ?=
 QUESTION ?=
@@ -17,6 +17,9 @@ index:  ## Phase 3: build dense (Chroma) + lexical (FTS5) indexes
 
 eval:  ## Phase 3: run the golden-question RETRIEVAL eval
 	uv run python -m pythia.eval.run_eval
+
+eval-planner:  ## run the planner end-to-end eval (needs Ollama; dev box only)
+	uv run python -m pythia.eval.run_eval --planner
 
 fetch:  ## Phase 5: fetch one resource -> typed table (make fetch RESOURCE_ID=<id>)
 	uv run python -m pythia.access.data_client --resource-id $(RESOURCE_ID)
