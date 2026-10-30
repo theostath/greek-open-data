@@ -1,0 +1,39 @@
+# Negative questions for the planner end-to-end eval (`run_eval --planner`).
+# Each asks about something data.gov.gr does not publish; the correct outcome is NO_MATCH.
+# Kept apart from golden_questions.yaml so retrieval metrics (`make eval`) do not move.
+# Checked 2026-10-30: the hybrid retriever's top-5 for every question is unrelated to it
+# (top fused scores 0.016-0.030, i.e. a single leg's rank 0-2). `why_uncovered` says why.
+# lang: el | en | greeklish
+questions:
+  - id: n01
+    question: "Ποιος κέρδισε το Παγκόσμιο Κύπελλο ποδοσφαίρου το 2022;"
+    lang: el
+    why_uncovered: "Sports results; top hits are municipal football-pitch inventories."
+  - id: n02
+    question: "Πόσους κατοίκους έχει το Τόκιο;"
+    lang: el
+    why_uncovered: "Foreign city statistics; Greek open data covers Greece."
+  - id: n03
+    question: "Ποια είναι η συνταγή για μουσακά;"
+    lang: el
+    why_uncovered: "Not data at all; top hits are orthophotos and antenna registries."
+  - id: n04
+    question: "What was Apple's quarterly revenue in 2025?"
+    lang: en
+    why_uncovered: "Private-company financials; top hits are 2025 public-sector staffing tables."
+  - id: n05
+    question: "How many moons does Jupiter have?"
+    lang: en
+    why_uncovered: "Astronomy; top hits are Patras land-use maps."
+  - id: n06
+    question: "Who won the Eurovision Song Contest in 2019?"
+    lang: en
+    why_uncovered: "Entertainment results; top hits are 2019 payroll and pharmacy tables."
+  - id: n07
+    question: "poia einai i timi tou bitcoin simera"
+    lang: greeklish
+    why_uncovered: "Live crypto prices; top hits are hospital registries."
+  - id: n08
+    question: "posoi anthropoi zoun sti Germania"
+    lang: greeklish
+    why_uncovered: "Foreign population; top hits are local flora and folklore records."

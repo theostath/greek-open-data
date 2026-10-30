@@ -22,25 +22,20 @@ uv run python .claude/skills/eval-gate/scripts/preflight.py
 It exits non-zero and tells you what's wrong if the gate is unsafe. What it is protecting you
 from:
 
-**Stale vectors.** The eval scores whatever is in Chroma, not what is in the catalog. If the
-catalog was re-harvested and `make index` hasn't run, you are measuring an old index and
-attributing the result to today's code.
+**Stale vectors.** The eval scores the `dataset_embeddings` table, not the catalog. If the
+catalog was re-harvested and `make index` hasn't run, you are measuring old vectors and
+attributing the result to today's code. Preflight counts a vector as stale when its `sig` no
+longer matches the dataset's `embed_text`, or it was made by another model.
 
-**HNSW tombstones — the subtle one.** `build_chroma_index` re-embeds only datasets whose
-`embed_text` changed. When *every* dataset changed it drops and recreates the collection; when
-only *some* did, it upserts. HNSW has no true update, so each upserted vector leaves a
-tombstone in the graph. Tombstones degrade recall *and* make ANN results vary between
-processes — so the run is not reproducible, and a later comparison against it is measuring
-graph damage as if it were a code change. CLAUDE.md §11 requires eval numbers to come from a
-tombstone-free collection. If preflight reports a partial re-embed, delete the Chroma
-directory and rebuild:
+**A missing or partial dense index.** On a checkout that predates ADR-0010, the vectors are
+still in `data/chroma/`. Migrate them (minutes) rather than re-embedding (~98 CPU-minutes,
+`docs/benchmarks/embedding-index-build.md`); `make index` refuses a full re-embed while that
+directory exists unless given `--force`:
 
 ```bash
-rm -rf data/chroma && uv run python -m pythia.retrieval.index
+uv run --python <signed interpreter> --with chromadb==1.5.9 python scripts/migrate_chroma_vectors.py
+uv run python -m pythia.retrieval.index    # must log dense=0
 ```
-
-That is a **~98 minute CPU rebuild** for all 21,806 datasets (`docs/benchmarks/embedding-index-build.md`).
-Plan around it; don't discover it at the end.
 
 **A dead lexical half.** Retrieval is dense + BM25 fused with RRF (ADR-0001). If `datasets_fts`
 is empty the eval still runs and still prints a number — a number for half a retriever.
@@ -53,19 +48,24 @@ uv run python -m pythia.eval.run_eval --no-normalize   # raw Phase 3 baseline (A
 ```
 
 Output is one `OVERALL` row plus one row per language. This is a real run of the shipped
-configuration (2026-08-06), which reproduced the 2026-07-28 numbers exactly — the run takes
-about a minute:
+configuration (2026-10-30, exact dense search, ADR-0010); the run takes about a minute:
 
 ```
-OVERALL    n=26  MRR=0.544  R@1=0.46  R@3=0.62  R@5=0.62  R@10=0.69
-el         n=12  MRR=0.595  R@1=0.50  R@3=0.67  R@5=0.67  R@10=0.83
-en         n=7   MRR=0.571  R@1=0.43  R@3=0.71  R@5=0.71  R@10=0.71
-greeklish  n=7   MRR=0.429  R@1=0.43  R@3=0.43  R@5=0.43  R@10=0.43
+OVERALL    n=26  MRR=0.700  R@1=0.58  R@3=0.81  R@5=0.88  R@10=0.92
+el         n=12  MRR=0.709  R@1=0.58  R@3=0.83  R@5=0.92  R@10=1.00
+en         n=7   MRR=0.786  R@1=0.71  R@3=0.86  R@5=0.86  R@10=0.86
+greeklish  n=7   MRR=0.600  R@1=0.43  R@3=0.71  R@5=0.86  R@10=0.86
 ```
 
-Bit-identical reproduction is the signal that the index is sound. If you re-run an unchanged
-configuration and the numbers move, stop — you have a tombstoned or stale index, not a
-discovery.
+Dense search is exact and tie-safe, so an unchanged configuration reproduces bit-identically.
+If the numbers move without a code change, stop: the vectors are stale, not improved.
+
+**Planning changes also run the planner gate** (`make eval-planner`, needs Ollama, ~20 min).
+It plans the 26 golden and 8 negative questions and buckets every outcome. It exits 1 on a
+match to a wrong dataset, 3 if any plan degraded (the run is invalid, not passed), 2 if the
+LLM is unreachable. Compare its JSON report question by question against a baseline run of
+the parent commit: a question newly wrong in either shape (MATCHED or UNSUPPORTED on the
+wrong dataset), or a negative question no longer refused, fails the change.
 
 To measure the reranker, set `RERANK_ENABLED=true` for the run. Budget for it: ~28 s/query on
 CPU, so **~12 minutes** for the set (ADR-0002). It ships default-off for exactly that reason,
@@ -103,7 +103,7 @@ description — and in the ADR too if the change is one:
 | baseline (<what it was>) | 26 | | | | | | | |
 | **this change** | 26 | | | | | | | |
 
-- Index: <tombstone-free rebuild YYYY-MM-DD | unchanged since YYYY-MM-DD>, 21,806 datasets
+- Index: preflight 0 stale / 0 orphaned on YYYY-MM-DD, 21,806 datasets
 - Model: intfloat/multilingual-e5-large · rerank: off · normalize: on
 - Verdict: <beats the ~0.04 noise floor / within noise / regression in <slice>>
 ```
@@ -114,16 +114,19 @@ the tag message (§11).
 
 ## Recorded baselines
 
-Measured 2026-07-28, n=26, e5-large, tombstone-free index. Compare against the row that
-matches your configuration — comparing a rerank-on run to the hybrid-only baseline is the
-third quiet way to produce a meaningless number.
+n=26, e5-large. Compare against the row that matches your configuration — comparing a
+rerank-on run to the hybrid-only baseline is the third quiet way to produce a meaningless
+number. Rows marked *Chroma* are history: the dense leg was approximate until ADR-0010.
 
 | Config | MRR | R@1 | R@10 | el | en | greeklish |
 |---|---|---|---|---|---|---|
-| hybrid only, no normalization | 0.515 | 0.42 | 0.69 | 0.595 | 0.571 | 0.319 |
-| **+ Greeklish normalization** (shipped, ADR-0005) | **0.544** | **0.46** | **0.69** | 0.595 | 0.571 | 0.429 |
-| + reranker, normalization off (ADR-0002, default-off) | 0.652 | 0.62 | | 0.729 | 0.714 | 0.457 |
-| + reranker **and** normalization | 0.644 | 0.62 | | 0.729 | 0.714 | 0.429 |
+| **exact dense + normalization** (shipped, 2026-10-30) | **0.700** | **0.58** | **0.92** | 0.709 | 0.786 | 0.600 |
+| exact dense, no normalization | 0.625 | 0.54 | 0.85 | 0.709 | 0.786 | 0.319 |
+| exact dense + normalization + reranker (default-off, ~28 s/query) | 0.817 | 0.77 | 0.92 | 0.896 | 0.857 | 0.643 |
+| *Chroma*, no normalization | 0.515 | 0.42 | 0.69 | 0.595 | 0.571 | 0.319 |
+| *Chroma* + normalization (ADR-0005) | 0.544 | 0.46 | 0.69 | 0.595 | 0.571 | 0.429 |
+| *Chroma* + reranker, normalization off (ADR-0002) | 0.652 | 0.62 | | 0.729 | 0.714 | 0.457 |
+| *Chroma* + reranker **and** normalization | 0.644 | 0.62 | | 0.729 | 0.714 | 0.429 |
 
 Note the last two rows: normalization and the reranker **do not stack** — they fix the same
 weakness, and combining them is slightly worse than the reranker alone. Assuming two wins add
@@ -139,6 +142,6 @@ Synthesis, access and ingestion changes don't move retrieval, so they don't need
 need `make check` and their own tests. Running the eval anyway costs ~2 minutes and proves
 nothing, and quoting an unchanged MRR on a synthesis PR implies a link that isn't there.
 
-If you changed retrieval and cannot run the gate (no catalog, no index, no time for a
-98-minute rebuild), say so explicitly in the PR rather than omitting the section. An
+If you changed retrieval and cannot run the gate (no catalog, no vectors, no Ollama for
+the planner gate), say so explicitly in the PR rather than omitting the section. An
 acknowledged gap is workable; a silent one reads as a passed gate.

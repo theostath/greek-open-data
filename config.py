@@ -27,7 +27,6 @@ class Settings(BaseSettings):
 
     # Retrieval (Phase 3). e5-large is the production model; tests pin e5-small for speed.
     embedding_model: str = "intfloat/multilingual-e5-large"
-    chroma_path: str = "data/chroma"
     retrieval_top_k: int = 10
 
     # Reranking (Phase 3 follow-up, ADR-0002). Opt-in and eval-gated: when enabled the

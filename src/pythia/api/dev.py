@@ -53,8 +53,11 @@ def preflight(settings: Settings) -> bool:
     print("\nPythia - preflight\n", flush=True)
     line(bool(datasets), "catalogue", f"{datasets:,} datasets"
          if datasets else "empty - run `uv run python -m pythia.ingest.harvest`")
-    line(bool(dense and lexical), "search index",
-         f"{dense:,} dense / {lexical:,} lexical" if dense and lexical
+    partial = bool(dense and dense < datasets)
+    line(bool(dense and lexical) and not partial, "search index",
+         f"partial ({dense:,} of {datasets:,}) dense / {lexical:,} lexical - "
+         "run `uv run python -m pythia.retrieval.index`" if partial
+         else f"{dense:,} dense / {lexical:,} lexical" if dense and lexical
          else "incomplete - run `uv run python -m pythia.retrieval.index`")
     line(bool(llm), "language model",
          f"{facts['llm_model']} at {settings.llm_base_url}" if llm

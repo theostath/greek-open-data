@@ -4,6 +4,32 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Dense retrieval is exact** (ADR-0010). The dense leg searches e5-large vectors stored in
+  `catalog.sqlite` exhaustively instead of through Chroma's HNSW index, which returned only
+  71% of the true top-10 on real queries. Golden-set MRR rises from 0.544 to **0.700**, R@1
+  from 12/26 to 15/26, R@10 from 18/26 to 24/26, at ~1.5 ms per search. Ties between the
+  1,380 datasets that share their text resolve by dataset id, so the same question always
+  cites the same dataset.
+- `/healthz` reports the loaded index beside the stored one and degrades when they differ:
+  **restart `pythia-dev` after `make index`.**
+
+### Added
+
+- `make eval-planner` (`run_eval --planner`): an end-to-end gate on the 26 golden questions and
+  8 new negative ones, counting a wrong dataset whether the planner matched it or called it
+  unsupported. It exits non-zero on a wrong match, a degraded plan, or an unreachable LLM.
+
+### Removed
+
+- **`chromadb`**, and `data/chroma/` with it. **Upgrading:** stop the server, then copy the
+  existing vectors across once with
+  `uv run --with chromadb==1.5.9 python scripts/migrate_chroma_vectors.py`. `make index`
+  refuses a full ~98-minute re-embed while `data/chroma/` still exists unless given `--force`.
+
 ## [0.1.0] — 2026-08-17
 
 First tagged release. The pipeline runs end to end, on a laptop, with no API keys: a question

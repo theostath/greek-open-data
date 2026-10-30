@@ -1,7 +1,8 @@
-"""Hybrid dataset retrieval: dense (Chroma) + lexical (FTS5), fused with RRF.
+"""Hybrid dataset retrieval: exact dense + lexical (FTS5), fused with RRF.
 
 ``find_dataset`` is the Phase 3 entry point: it returns ranked candidate datasets
-for a natural-language question, hydrated with catalog metadata for provenance.
+for a natural-language question, hydrated with catalog metadata for provenance. The dense
+leg is an exact cosine scan over the in-memory ``DenseIndex`` (ADR-0010).
 """
 
 from __future__ import annotations
@@ -11,7 +12,8 @@ from dataclasses import dataclass
 
 from sentence_transformers import SentenceTransformer
 
-from pythia.retrieval.embed import dense_search
+from pythia.retrieval.dense import DenseIndex
+from pythia.retrieval.embed import embed_query
 from pythia.retrieval.lexical import lexical_search, rrf_fuse_scored
 from pythia.retrieval.rerank import Scorer, rerank
 
@@ -51,10 +53,9 @@ def find_dataset(
     *,
     conn: sqlite3.Connection,
     model: SentenceTransformer,
-    chroma_path: str,
+    dense: DenseIndex,
     top_k: int = 10,
     pool: int = 50,
-    collection: str = "datasets",
     reranker: Scorer | None = None,
     rerank_pool: int = 20,
 ) -> list[Candidate]:
@@ -63,19 +64,19 @@ def find_dataset(
     When ``reranker`` is given, the top ``rerank_pool`` fused candidates are re-scored by
     the cross-encoder and reordered before ``top_k`` is taken; otherwise fusion alone ranks.
     """
-    dense = dense_search(
-        question, pool, model=model, chroma_path=chroma_path, collection=collection
-    )
+    dense_ids = [
+        dataset_id for dataset_id, _ in dense.search(embed_query(model, question), pool)
+    ]
     lexical = lexical_search(conn, question, pool)
     if reranker is not None:
-        scored = rrf_fuse_scored([dense, lexical], top_k=rerank_pool)
+        scored = rrf_fuse_scored([dense_ids, lexical], top_k=rerank_pool)
         score_by_id = dict(scored)
         reranked = rerank(
             question, _fetch_embed_texts(conn, [i for i, _ in scored]), reranker, top_k=top_k
         )
         fused = [(dataset_id, score_by_id[dataset_id]) for dataset_id in reranked]
     else:
-        fused = rrf_fuse_scored([dense, lexical], top_k=top_k)
+        fused = rrf_fuse_scored([dense_ids, lexical], top_k=top_k)
     return _hydrate(conn, fused)
 
 

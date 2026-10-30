@@ -19,6 +19,7 @@ from pythia.retrieval.search import Candidate
 
 _HIGH_SCORE = 2.0 / 60  # tops both retrieval arms -> confidence ~1.0
 _LOW_SCORE = 0.0001  # confidence well below the default 0.15 floor
+_NO_DENSE = object()  # stands in for a DenseIndex; find_dataset is stubbed in these tests
 
 
 def _dataset(id_: str) -> DatasetRow:
@@ -68,9 +69,9 @@ def _candidate(score: float, id_: str = "ds1") -> Candidate:
 
 
 def _plan(conn: sqlite3.Connection, llm: FakeLLM, **kw: object) -> QueryPlan:
-    """Call make_plan with test defaults (no real model/chroma needed once stubbed)."""
+    """Call make_plan with test defaults (no real model or dense index needed once stubbed)."""
     return make_plan(
-        "Πόσα τροχαία ατυχήματα;", conn=conn, model=None, chroma_path="", llm=llm,  # type: ignore[arg-type]
+        "Πόσα τροχαία ατυχήματα;", conn=conn, model=None, dense=_NO_DENSE, llm=llm,  # type: ignore[arg-type]
         settings=Settings(), **kw,  # type: ignore[arg-type]
     )
 
@@ -112,7 +113,7 @@ def test_short_question_is_no_match(monkeypatch: pytest.MonkeyPatch) -> None:
     _stub_retrieval(monkeypatch, [_candidate(_HIGH_SCORE)])
     llm = FakeLLM({"relevant": True})
     plan = make_plan(
-        "?", conn=_catalog(), model=None, chroma_path="", llm=llm,  # type: ignore[arg-type]
+        "?", conn=_catalog(), model=None, dense=_NO_DENSE, llm=llm,  # type: ignore[arg-type]
         settings=Settings(),
     )
     assert plan.status is PlanStatus.NO_MATCH
@@ -225,3 +226,23 @@ def test_plan_is_frozen(monkeypatch: pytest.MonkeyPatch) -> None:
     plan = _plan(_catalog(), FakeLLM({"relevant": True, "params": {}}))
     with pytest.raises(dataclasses.FrozenInstanceError):
         plan.status = PlanStatus.NO_MATCH  # type: ignore[misc]
+
+
+def test_make_plan_forwards_dense_to_find_dataset(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``make_plan(..., dense=)`` hands the very same snapshot to ``find_dataset`` (ADR-0010)."""
+    seen: list[dict[str, object]] = []
+
+    def spy(*_a: object, **kw: object) -> list[Candidate]:
+        """Record the kwargs; return one strong candidate."""
+        seen.append(kw)
+        return [_candidate(_HIGH_SCORE)]
+
+    monkeypatch.setattr(planner_module, "find_dataset", spy)
+    snapshot = object()
+    make_plan(
+        "Πόσα τροχαία ατυχήματα;", conn=_catalog(), model=None, dense=snapshot,  # type: ignore[arg-type]
+        llm=FakeLLM({"relevant": True, "params": {}}), settings=Settings(),
+    )
+    assert len(seen) == 1
+    assert seen[0]["dense"] is snapshot
+    assert "chroma_path" not in seen[0]

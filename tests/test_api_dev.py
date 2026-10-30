@@ -17,7 +17,11 @@ from pythia.api import dev
 
 @pytest.fixture
 def health(monkeypatch: pytest.MonkeyPatch) -> Any:
-    """Patch the health probe so preflight never touches Chroma or the network."""
+    """Patch the health probe so preflight never touches the catalogue or the network.
+
+    The lambda takes exactly one positional argument: ``preflight`` keeps calling
+    ``health(settings)`` and never passes ``dense_info`` (it has no running pipeline).
+    """
     def install(**facts: Any) -> None:
         defaults = {"datasets": 21806, "dense_index": 21806, "lexical_index": 21806,
                     "llm_reachable": True, "llm_model": "qwen3.5:9b", "status": "ok"}
@@ -75,3 +79,25 @@ def test_the_banner_is_ascii_so_a_cp1252_console_cannot_mangle_it(
 
     out = capsys.readouterr().out
     out.encode("ascii")  # raises UnicodeEncodeError if a non-ASCII character crept back in
+
+
+def test_a_partial_dense_index_is_reported_with_both_counts(
+    health: Any, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Fewer vectors than datasets is a gap the preflight names, with N of M (spec Step 6)."""
+    health(datasets=800, dense_index=500, lexical_index=800, status="degraded")
+
+    dev.preflight(Settings())
+
+    assert "partial (500 of 800)" in capsys.readouterr().out
+
+
+def test_a_complete_dense_index_is_not_called_partial(
+    health: Any, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The partial wording appears only when the dense index really is short."""
+    health(datasets=800, dense_index=800, lexical_index=800)
+
+    dev.preflight(Settings())
+
+    assert "partial" not in capsys.readouterr().out
