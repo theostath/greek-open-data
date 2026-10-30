@@ -203,6 +203,8 @@ class Pipeline:
         *,
         model: Any = None,
         model_loader: Callable[[], Any] | None = None,
+        dense: Any = None,
+        dense_loader: Callable[[], Any] | None = None,
         llm: LLMClient | None = None,
         client: Any = None,
     ) -> None:
@@ -213,6 +215,9 @@ class Pipeline:
         self._model = model
         self._model_loader = model_loader
         self._model_lock = threading.Lock()
+        self._dense = dense
+        self._dense_loader = dense_loader
+        self._dense_lock = threading.Lock()
         self._inference = threading.Semaphore(settings.api_max_concurrent_jobs)
 
     @property
@@ -229,9 +234,29 @@ class Pipeline:
                     self._model = self._model_loader()
         return self._model
 
+    @property
+    def dense(self) -> Any:
+        """The exact dense index snapshot, loaded on first use (restart-only, ADR-0010)."""
+        if self._dense is None and self._dense_loader is not None:
+            with self._dense_lock:
+                if self._dense is None:
+                    self._dense = self._dense_loader()
+        return self._dense
+
+    def dense_info(self) -> tuple[int, str | None] | None:
+        """Return the loaded snapshot's ``(count, version)``, or ``None`` if not loaded.
+
+        Never triggers a load, so a health probe cannot pay for one.
+        """
+        snapshot = self._dense
+        if snapshot is None:
+            return None
+        return len(snapshot.ids), snapshot.version
+
     def warm(self) -> None:
-        """Force the embedding load now, so the first question does not pay for it."""
+        """Force the model and dense index loads now, so the first question does not pay."""
         _ = self.model
+        _ = self.dense
 
     @classmethod
     def create(cls, settings: Settings | None = None, *, with_llm: bool = True) -> Pipeline:
@@ -241,6 +266,7 @@ class Pipeline:
         from pythia.llm import load_llm
         from pythia.logging_setup import configure_logging
         from pythia.net import use_system_trust_store
+        from pythia.retrieval.dense import load_dense_index
         from pythia.retrieval.embed import load_model
 
         cfg = settings or get_settings()
@@ -254,6 +280,7 @@ class Pipeline:
         return cls(
             cfg,
             model_loader=lambda: load_model(cfg.embedding_model),
+            dense_loader=lambda: load_dense_index(cfg.catalog_db_path, cfg.embedding_model),
             llm=load_llm(cfg) if with_llm else None,
             client=client,
         )
@@ -374,9 +401,10 @@ class Pipeline:
                 on_stage(name)
 
         if resource_id:
-            # Bypass retrieval and planning entirely. Golden-set MRR is 0.544, so routing a
-            # probe through retrieval means a synthesis failure and a retrieval miss look
-            # identical — and this path also avoids loading the embedding model.
+            # Bypass retrieval and planning entirely. Retrieval is exact dense + BM25
+            # (ADR-0010) and still misses, so routing a probe through it means a synthesis
+            # failure and a retrieval miss look identical — and this path also avoids loading
+            # the embedding model.
             stage("fetching")
             resource = catalog.get_resource(conn, resource_id)
             if resource is None:
@@ -396,7 +424,7 @@ class Pipeline:
 
         stage("planning")
         plan = make_plan(
-            question, conn=conn, model=self.model, chroma_path=cfg.chroma_path,
+            question, conn=conn, model=self.model, dense=self.dense,
             llm=self.llm, settings=cfg,
         )
         ctx = None

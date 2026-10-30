@@ -20,16 +20,12 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-import chromadb  # noqa: E402
-from chromadb.config import Settings as ChromaSettings  # noqa: E402
 from config import get_settings  # noqa: E402
 
 from pythia.retrieval.embed import _signature  # noqa: E402
 
 # Imported rather than reimplemented: if the signature scheme ever changes, this
 # check must change with it, otherwise it would report drift that does not exist.
-
-COLLECTION = "datasets"
 
 
 def catalog_counts(db_path: str) -> tuple[int, int, dict[str, str]]:
@@ -48,23 +44,38 @@ def catalog_counts(db_path: str) -> tuple[int, int, dict[str, str]]:
         conn.close()
 
 
-def index_state(chroma_path: str, embed_texts: dict[str, str]) -> tuple[int, int, int]:
-    """Return (indexed vectors, datasets needing re-embed, vectors with no catalog row)."""
-    client = chromadb.PersistentClient(
-        path=chroma_path, settings=ChromaSettings(anonymized_telemetry=False)
+def index_state(
+    db_path: str, model_name: str, embed_texts: dict[str, str]
+) -> tuple[int, int, int]:
+    """Return (indexed vectors, datasets needing re-embed, vectors with no catalog row).
+
+    Reads ``dataset_embeddings``. A dataset is stale when it has no row, its ``sig`` differs
+    from the current ``embed_text``, or its row was written under another model. A catalogue
+    without the table reads as nothing indexed and everything stale.
+    """
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        try:
+            rows = {
+                str(ds_id): (str(model), str(sig))
+                for ds_id, model, sig in conn.execute(
+                    "SELECT dataset_id, model, sig FROM dataset_embeddings"
+                )
+            }
+        except sqlite3.OperationalError:
+            return 0, len(embed_texts), 0
+    finally:
+        conn.close()
+    indexed = sum(1 for model, _ in rows.values() if model == model_name)
+    stale = sum(
+        1
+        for ds_id, text in embed_texts.items()
+        if rows.get(ds_id) != (model_name, _signature(text))
     )
-    collection = client.get_or_create_collection(
-        name=COLLECTION, metadata={"hnsw:space": "cosine"}
+    orphaned = sum(
+        1 for ds_id, (model, _) in rows.items() if model == model_name and ds_id not in embed_texts
     )
-    existing = collection.get()
-    metadatas = existing.get("metadatas") or []
-    indexed = {
-        ex_id: (meta or {}).get("sig")
-        for ex_id, meta in zip(existing["ids"], metadatas, strict=False)
-    }
-    stale = sum(1 for ds_id, text in embed_texts.items() if indexed.get(ds_id) != _signature(text))
-    orphaned = sum(1 for ex_id in indexed if ex_id not in embed_texts)
-    return len(indexed), stale, orphaned
+    return indexed, stale, orphaned
 
 
 def main() -> int:
@@ -77,11 +88,13 @@ def main() -> int:
         return 1
 
     total, fts_rows, embed_texts = catalog_counts(settings.catalog_db_path)
-    indexed, stale, orphaned = index_state(settings.chroma_path, embed_texts)
+    indexed, stale, orphaned = index_state(
+        settings.catalog_db_path, settings.embedding_model, embed_texts
+    )
 
     print(f"catalog        {total:>7,} datasets  ({settings.catalog_db_path})")
     print(f"lexical (FTS5) {fts_rows:>7,} rows")
-    print(f"dense (Chroma) {indexed:>7,} vectors  ({settings.chroma_path}/{COLLECTION})")
+    print(f"dense          {indexed:>7,} vectors  (dataset_embeddings, {settings.embedding_model})")
     print(f"  stale        {stale:>7,} datasets whose embed_text no longer matches the index")
     print(f"  orphaned     {orphaned:>7,} vectors with no catalog row")
     print()
@@ -103,17 +116,10 @@ def main() -> int:
         problems.append(f"{orphaned:,} orphaned vectors - the index has drifted from the catalog")
 
     if stale:
-        partial = 0 < stale < total
         problems.append(
             f"{stale:,} of {total:,} datasets are stale - the eval would score an index that "
             "does not match the catalog"
         )
-        if partial:
-            problems.append(
-                "a partial re-embed UPSERTS, leaving one HNSW tombstone per changed row: "
-                "recall degrades and ANN results vary between processes, so the numbers are "
-                "not reproducible. Delete the Chroma directory and rebuild from scratch."
-            )
 
     if problems:
         print("NOT SAFE TO GATE:")
@@ -121,7 +127,7 @@ def main() -> int:
             print(f"  - {problem}")
         return 1
 
-    print("OK - indexes are complete, current and tombstone-free. Safe to run the eval.")
+    print("OK - indexes are complete and current. Safe to run the eval.")
     return 0
 
 

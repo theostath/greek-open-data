@@ -57,7 +57,7 @@ dataset, publisher, and `last_updated`.
 | Backend | FastAPI + Uvicorn |
 | Frontend | Server-rendered Jinja2 + HTMX (no SPA build step) |
 | Metadata store | SQLite (committed schema, plain-SQL migrations) |
-| Vector store | Chroma (persistent, local) |
+| Dense search | Exact cosine over vectors stored in SQLite (ADR-0010) |
 | Embeddings | `intfloat/multilingual-e5-large` (local, zero cost); Voyage AI fallback |
 | Retrieval | Dense + BM25 (SQLite FTS5) hybrid, RRF fusion, optional reranker — see [ADRs](docs/adr/) |
 | LLM | Local **Qwen via Ollama** — no API key, no egress ([ADR-0004](docs/adr/0004-llm-provider-ollama-qwen.md)); model id in config, not hardcoded |
@@ -142,21 +142,29 @@ uv run python -m pythia.ingest.client_probe   # -> docs/api_probe_raw.md
 > `--skip-preflight`, `--host`, `--port`.
 >
 > `make index` is **incremental** — it re-embeds only datasets whose text changed (and drops
-> removed ones), so refreshing the catalog doesn't re-embed everything. When *every* dataset
-> changed it rebuilds the collection from scratch, so the HNSW graph stays tombstone-free.
-> A full CPU rebuild of all 21,806 datasets takes ~98 min — see
+> removed ones), committing each batch so an interrupted run resumes. A full CPU rebuild of
+> all 21,806 datasets takes ~98 min — see
 > [`docs/benchmarks/embedding-index-build.md`](docs/benchmarks/embedding-index-build.md).
+> **Restart `pythia-dev` after `make index`**: the server loads the vectors once at startup,
+> and `/healthz` reports `degraded` until it is running the current index.
 >
-> Retrieval baseline (e5-large, 26 golden questions): **MRR 0.515, R@1 0.42, R@10 0.69**.
-> With Greeklish normalization: **MRR 0.544** (greeklish slice 0.319 → 0.429).
-> With the opt-in cross-encoder reranker (`RERANK_ENABLED=true`): **MRR 0.652, R@1 0.62** —
-> but ~28 s/query on CPU, which is why it ships **off** (ADR-0002).
+> **Upgrading from 0.1.0?** The vectors used to live in `data/chroma/`. Copy them across once,
+> in about a minute, instead of re-embedding (stop the server first):
+> `uv run --with chromadb==1.5.9 python scripts/migrate_chroma_vectors.py`. Then
+> `make index` should log `dense=0`.
+>
+> Retrieval (e5-large, 26 golden questions, Greeklish normalization on):
+> **MRR 0.700, R@1 0.58, R@10 0.92** with exact dense search, up from MRR 0.544, R@1 0.46 when
+> the dense leg was Chroma's approximate HNSW index ([ADR-0010](docs/adr/0010-exact-dense-search.md),
+> [`docs/benchmarks/dense-recall-probe.md`](docs/benchmarks/dense-recall-probe.md)).
+> The opt-in cross-encoder reranker (`RERANK_ENABLED=true`) costs ~28 s/query on CPU, which
+> is why it ships **off** (ADR-0002).
 >
 > [LEANN](https://github.com/StarTrail-org/LEANN), a storage-saving vector index that
 > recomputes embeddings at query time, was evaluated as a replacement for Chroma and not
 > adopted: about 84 MB saved, but minutes per query with e5-large on CPU. See
-> [`docs/benchmarks/leann-evaluation.md`](docs/benchmarks/leann-evaluation.md). The same run
-> showed exact dense search lifting MRR to 0.700 (#38).
+> [`docs/benchmarks/leann-evaluation.md`](docs/benchmarks/leann-evaluation.md). That run is
+> where the dense-recall gap behind ADR-0010 was found.
 
 ## Data source
 
@@ -175,8 +183,11 @@ All of these are **local build artifacts** (gitignored) — regenerate them with
 | --- | --- | --- |
 | Catalog metadata (`datasets`, `resources`) | `data/catalog.sqlite` | gitignored |
 | Lexical index (FTS5 / BM25) | `datasets_fts` table inside `data/catalog.sqlite` | gitignored |
-| Dense embedding **vectors** (Chroma) | `data/chroma/` (`chroma.sqlite3` + collection dir) | gitignored |
+| Dense embedding **vectors** (~100 MB) | `dataset_embeddings` table inside `data/catalog.sqlite` | gitignored |
 | Embedding **model weights** (e5-large, ~2.2 GB) | `~/.cache/huggingface/hub/` — outside the repo | n/a |
+
+The catalogue therefore weighs ~235 MB, and **deleting it deletes the vectors too**: about
+98 CPU-minutes to rebuild. Back it up before experimenting with a fresh harvest.
 
 ## Roadmap
 

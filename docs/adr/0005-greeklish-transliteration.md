@@ -24,7 +24,7 @@ Add a pure, query-side normalization step in `planning/normalize.py`:
 
 Only the **greeklish** path is transliterated; `el` and `en` questions pass through
 unchanged. We deliberately do **not** accent-fold the query for the dense arm, because the
-Chroma index was built on raw accented `passage:` text and folding one side only is a
+dense vectors were built on raw accented `passage:` text and folding one side only is a
 train/serve mismatch (the FTS arm already folds symmetrically via `unicode61
 remove_diacritics 2`).
 
@@ -60,6 +60,22 @@ winning no-reranker arm. Transliteration pulls correct answers much higher when 
 them, but one question dropped out of the top 10 entirely. At n=7 greeklish questions that
 is a single item — the golden set is too small to resolve this. **Expanding the golden set
 is a precondition for trusting any refinement of this decision.**
+
+## Re-measured on exact dense search (2026-10-30, ADR-0010)
+
+The table above was measured on Chroma's approximate dense leg, so the decision was re-run
+once the dense leg became exact:
+
+| Config | OVERALL MRR | el | en | greeklish MRR | greeklish R@1 | greeklish R@10 |
+|---|---|---|---|---|---|---|
+| exact, norm OFF | 0.625 | 0.709 | 0.786 | 0.319 | 0.29 | 0.57 |
+| **exact, norm ON** (shipped) | **0.700** | 0.709 | 0.786 | **0.600** | **0.43** | **0.86** |
+
+**The decision stands, and is stronger.** Normalization now lifts greeklish MRR by +0.281
+(against +0.110 before), and `el`/`en` are again bit-identical on and off. The R@10 caveat
+above is gone: greeklish R@10 rises 0.57 → 0.86 with normalization, where it fell on Chroma.
+The approximate index was hiding transliterated queries' correct neighbours, not the
+transliteration losing them.
 
 ## Consequences
 
