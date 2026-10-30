@@ -80,7 +80,8 @@ vectors, exact search beats both by a wide margin: the Greeklish slice goes from
 | LEANN graph traversal + IPC only (recompute served from lookup) | 417 ms median, 603 ms p90 (complexity 64) |
 | **LEANN with real e5-large recomputation** | **failed**; estimated at minutes |
 
-LEANN asked for **79,067 node recomputations across 79 searches, about 1,000 per query**.
+LEANN asked for **79,067 node recomputations across 79 searches (26 questions × 3 complexity
+settings, plus one warmup), about 1,000 per query**.
 e5-large on this CPU runs at 0.269 s per passage
 ([`embedding-index-build.md`](embedding-index-build.md)). That puts a query at roughly 270 s
 before any batching gains, against a planner budget measured in seconds. The real run
