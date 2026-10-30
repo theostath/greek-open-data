@@ -1,8 +1,53 @@
 {#
   The terminal fragment. It carries NO hx-trigger, which is what stops the polling.
   Dispatches on the one distinction that matters: did we license a claim, or not?
+
+  Every result opens with the same status line, so the first thing read is the verdict —
+  answered, partial, or not answered — in words, with a drawn mark that never carries the
+  meaning alone. Status comes straight from AnswerView.status, already on the whitelist.
 #}
-<div class="result" data-job="{{ job_id }}">
+{% set status = view.status.value %}
+<div class="result" data-job="{{ job_id }}" tabindex="-1">
+  <header class="verdict verdict-{{ 'refused' if view.refusal else status }}">
+    <p class="verdict-line">
+      <svg class="verdict-mark" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+        {% if view.refusal %}
+        <circle cx="8" cy="8" r="6.25"/><path d="M5 11 11 5"/>
+        {% elif status == "partial" %}
+        <circle cx="8" cy="8" r="6.25"/><path class="fill" d="M8 1.75a6.25 6.25 0 0 1 0 12.5z"/>
+        {% else %}
+        <circle cx="8" cy="8" r="6.25"/><path d="m5 8.2 2 2 4-4.4"/>
+        {% endif %}
+      </svg>
+      <span class="verdict-word">
+        {% if view.refusal %}Not answered{% elif status == "partial" %}Partial answer{% else %}Answered{% endif %}
+      </span>
+      <span class="verdict-note">
+        {% if view.refusal %}
+          {% if view.refusal.shape.value == "matched_but_refused" %}the dataset was found, the
+            slice you asked for is not in it{% elif view.refusal.shape.value == "unsupported" %}the
+            dataset is not published in a readable format{% else %}no dataset covers
+            this{% endif %}
+        {% elif status == "partial" %}read the limits before quoting it
+        {% else %}from one dataset, cited below{% endif %}
+      </span>
+    </p>
+    <p class="verdict-question" lang="{{ view.language }}" dir="auto">{{ view.question }}</p>
+
+    {% if job_id %}
+    <p class="result-actions">
+      {# A plain link first, so the result is shareable with no JavaScript at all. #}
+      <a class="action" href="/a/{{ job_id }}">Link to this result</a>
+      <span class="action-note">kept for 15 minutes</span>
+      {% if view.footer and not view.refusal %}
+      <button type="button" class="action action-copy" hidden
+              data-copy="{{ view.footer.publisher }}, «{{ view.footer.dataset_title }}», data.gov.gr, last updated {{ view.footer.last_updated|day }}, retrieved {{ view.footer.fetched_at|day }}. {{ view.footer.dataset_url }}">Copy citation</button>
+      {% endif %}
+      <span class="copy-status" role="status"></span>
+    </p>
+    {% endif %}
+  </header>
+
   {% if view.refusal %}
     {% include "partials/_refusal.html" %}
   {% else %}

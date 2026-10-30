@@ -1,6 +1,18 @@
-{# The ask control. Persists above the result; re-asking replaces the result, never appends. #}
-<form class="ask" hx-post="/ask" hx-target="#result" hx-swap="innerHTML" hx-disabled-elt="find button">
-  <label class="ask-label" for="question">Your question</label>
+{# The ask control. Persists above the result; re-asking replaces the result, never appends.
+
+   resource_id is empty unless a dataset was pinned from a browse page (app.js fills it). An
+   empty value is what the route already treats as "search the whole catalogue". #}
+<form class="ask" id="ask" hx-post="/ask" hx-target="#result" hx-swap="innerHTML"
+      hx-disabled-elt="find button[type=submit]">
+  <label class="ask-label" for="question">{{ ask_label|default('Your question') }}</label>
+
+  <p class="pinned" id="pinned" hidden>
+    <span class="pinned-label">Answering from</span>
+    <strong class="pinned-title" id="pinned-title" dir="auto"></strong>
+    <button type="button" class="link-button" id="unpin">Search all datasets instead</button>
+  </p>
+  <input type="hidden" name="resource_id" id="resource_id" value="">
+
   <div class="ask-row">
     <input
       type="text"
@@ -10,9 +22,12 @@
       placeholder="π.χ. πόσες πυρκαγιές το 2023;"
       maxlength="500"
       autocomplete="off"
+      enterkeyhint="search"
       dir="auto"
+      aria-describedby="ask-hint"
       required>
     <button type="submit">Ask</button>
   </div>
-  <p class="ask-hint">Greek, Greeklish or English. One question at a time.</p>
+  <p class="ask-hint" id="ask-hint">Greek, Greeklish or English. Name the measure and the
+    year; one question at a time.</p>
 </form>

@@ -1,4 +1,3 @@
-<!-- SEED: re-run /impeccable document once there's code to capture the actual tokens and components. -->
 ---
 name: Pythia
 description: A reference desk for Greek open data — ask a question, get a cited figure or an honest no.
@@ -271,30 +270,102 @@ instrument, decoration reads as imprecision.
 
 ## 5. Components
 
-**Built in Phase 7, not yet captured properly.** Twelve templates now exist under
-`templates/`; this section still predates them. **Re-run `/impeccable document` against the
-real templates** to capture actual tokens and components and to generate the
-`.impeccable/design.json` sidecar. Until then, `static/app.css` is the source of truth.
+Captured from the shipped templates (redesign of 2026-10-31). `static/app.css` remains the
+source of truth for values; this section records structure and the reasons behind it.
 
-What shipped, in brief:
+**Page frame.** A thin strip of the painting (`.masthead-art`, 2.25–4.5rem tall, was up to 9rem)
+over one band row: the wordmark on the left, the primary nav on the right — **Ask · Browse ·
+Track record**, current page marked in white with a 2px rule (`aria-current="page"`). Browse and
+the stats page used to be reachable only from the colophon, below every answer. The body is a
+flex column so the colophon sits at the bottom of short pages without negative margins.
 
-- **Provenance footer** (`partials/_footer.html`) — the signature component, on every
-  non-refusal answer, structurally impossible to omit because `_answer.html` *raises* rather
-  than render without it. Freshness is the sentence `footer.py` writes plus a four-step
-  indicator in neutral ink, both derived from the same thresholds so they cannot disagree.
-- **Ask control** (`partials/_ask.html`) — persists above the result; re-asking replaces the
-  result rather than appending, so there is no scrollback.
-- **Three refusal branches** (`partials/_refusal.html`) — the structural rule is that a
-  refusal carrying provenance renders it, and one that does not shows what was searched
-  instead. That is why `matched_but_refused` resembles an answer more than the other two.
-- **Progress** (`partials/_progress.html`) — skeleton content, a distinct queued state, and
-  elapsed seconds, because one stage can legitimately last ~90 s.
+**Home.** A visible `h1` ("Ask Greek open data a question.") and a one-sentence lede replace the
+masthead standfirst and the old "What this can answer" paragraph, which said the same thing
+twice. Under the ask control: suggestion chips in one wrapping row, a browse route, then a
+three-step "how it works" list (find a dataset → read the data → cite or decline) — the same
+three steps the progress screen narrates — and "What it will not do" in a `<details>`. Once a
+question is asked, `main:has(#result …)` hides the lede and visually hides the `h1`, so the result
+sits directly under the question.
 
-**Known open critique:** the UI is functional but not liked (2026-08-07). A
-`/impeccable critique` pass, and probably `bolder` or `typeset`, is queued work — see
-REPO_REPORT.md Part 3.3. The layout decision most worth revisiting first is
-**claim → provenance → chart**, which deliberately inverts the usual order so the quotable
-unit never scrolls away from its citation.
+**Ask control** (`partials/_ask.html`) — persists above the result; re-asking replaces the
+result rather than appending, so there is no scrollback. It carries a hidden `resource_id` and a
+**pinned** line ("Answering from <dataset> · Search all datasets instead") that app.js fills when a
+dataset is chosen on a browse page. Empty `resource_id` is what the route already treats as "search
+the whole catalogue". The pinned line uses `--surface-sunken`, because a pin is the system's
+current choice stated in words, not an action.
+
+**Verdict line** (`partials/_result.html`) — every terminal result opens with its outcome in
+words: *Answered* / *Partial answer* / *Not answered*, a short reason, the question restated,
+then **Link to this result** (the `/a/{id}` permalink, a plain link so it works without JS,
+labelled "kept for 15 minutes") and **Copy citation**. The drawn mark (tick, half-disc, struck
+circle) repeats the word in shape and is never coloured. The citation string is assembled
+server-side from whitelisted footer fields only.
+
+**Answer** (`partials/_answer.html`) — claim → caveats ("Limits of this answer", a full hairline
+frame, never collapsed) → seams notes → **provenance** → figures table → chart. The figures table
+moved *below* the source: a live asylum answer lists 26 categories, and placed first it pushed the
+citation ~1,900px below the claim (read off the live screenshot); now the gap is 257px at 1366px wide, measured. Below 34rem the table
+becomes a ledger (figure and value on one line, how it was computed under it).
+
+**Provenance** (`partials/_footer.html`) — the signature component, on every non-refusal answer,
+structurally impossible to omit because `_answer.html` *raises* rather than render without it.
+The dataset title is the panel's heading and the publisher sits under it, as in a printed
+citation; then Updated / Coverage / Read from. Timestamps go through the `day` and `minute` Jinja
+filters (`api/app.py`), which render ISO values as `2026-05-11` / `2026-07-29 12:00 UTC` and
+return anything unparseable — `footer.build`'s "not recorded" literal — unchanged. Freshness is
+the sentence `footer.py` writes plus the four-step indicator in neutral ink.
+
+**Chart** (`partials/_chart.html`) — caption (title and caveat) above the plot, source line
+below it so a screenshot of the chart alone still carries its source. app.js merges
+*presentation-only* options over the validated spec: it hides the canvas title (the caption
+carries it) and, for a category axis of ≤ 8 labels on a column under 520px, keeps every label at
+35° instead of letting ECharts drop the ones that overlap. No value is touched.
+
+**Refusals** (`partials/_refusal.html`) — three shapes, unchanged in logic: a refusal carrying
+provenance renders it; one that does not shows what was searched instead. Every shape now ends
+on the same two routes: **Rephrase the question** (focuses the field with the text selected, so
+the click visibly does something) and **Browse datasets by publisher instead**.
+
+**Progress** (`partials/_progress.html`) — the stage heading, then a three-step list with
+done / now / not-started states (state also spelled out for screen readers), the current step's
+one-line detail, a skeleton, and elapsed seconds. The note changes at 20 s from "an answer can
+take anywhere from ten seconds to a couple of minutes" to "you can leave this tab open and come
+back". Nothing in this fragment animates on entry: it is re-swapped every second.
+
+**Notices** (`_error.html`, `_expired.html`) — a framed block. Busy and pipeline failures, and
+the expired page, carry a real **Ask again** submit (`form="ask"`), because the question is still
+in the field and a button that only refills it looks broken.
+
+**Browse** (`explore.html`, `explore_datasets.html`) — a jump nav (Topics first, then publisher
+kinds), a progressive filter field (accent- and case-insensitive: "χανιων" finds "Δήμος Χανίων"),
+then two-column hairline directories with tabular counts. Dataset rows put the title, update date
+and formats on the left and the actions on the right; readable formats (CSV, JSON) are set in ink
+and weight, the rest quiet. **Ask about this** is a secondary button; with JS it pins the dataset
+into the ask form at the top, prefills the editable title and scrolls there, so the answer lands
+where the eye is instead of thousands of pixels above the clicked row.
+
+**Track record** (`stats.html`) — proportion bars are inline SVG `rect`s whose `width` is a
+presentation attribute. The previous `style="width: N%"` was **blocked by the CSP**
+(`style-src 'self'`), so every bar drew at full width and 14% looked like 100%.
+`tests/test_api_presentation.py` now fails on any inline `style` or `<style>` in a template. Time,
+cost and guard counts are ledger rows (label left, figure right), not stat tiles.
+
+**Buttons** — one vocabulary in three weights: primary (accent fill: Ask), secondary (white with
+a `--control-border` outline and accent text: Ask about this, Rephrase, Ask again, Copy citation)
+and the suggestion chip (`--accent-wash`, ink text). All press at `scale(0.97)`; hover is gated to
+`(hover: hover) and (pointer: fine)`.
+
+**Motion** — one authored moment: a finished result or notice settles in once (opacity and a
+6px rise, 260ms, `--ease-out: cubic-bezier(0.23, 1, 0.32, 1)`). The skeleton pulses slowly.
+Everything is off under `prefers-reduced-motion`, including smooth scrolling.
+
+**CSP hygiene** — htmx 2 injects a `<style>` for its indicator class by default; the CSP blocked
+it on every page load. `base.html` sets `htmx-config` `includeIndicatorStyles: false`.
+
+**Not yet done, and why:** the unsupported refusal still cannot link to the dataset page —
+`RefusalView` carries no URL for that shape, and adding one is a whitelist change in `view.py`,
+not a template change. The type is still the platform sans: local-first rules out a webfont
+fetch, and self-hosting one is a vendored asset with a licence and a hash test to add.
 
 ## 6. Do's and Don'ts
 

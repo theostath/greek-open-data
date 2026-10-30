@@ -1,9 +1,22 @@
 {% extends "base.html" %}
+{% set section = 'stats' %}
 
-{% block title %}Statistics — Pythia{% endblock %}
+{% block title %}Track record — Pythia{% endblock %}
 
 {% macro pct(part, whole) -%}
 {{ ((part / whole) * 100) | round | int if whole else 0 }}
+{%- endmacro %}
+
+{#
+  A proportion bar. The CSP is style-src 'self', so an inline style="width: N%" is BLOCKED —
+  which is exactly what used to happen: every bar drew at full width, so 14% looked like 100%.
+  An SVG rect's width is a presentation attribute, not a style, so the CSP leaves it alone and
+  the bar is the length the number says. The number beside it remains the accessible value.
+#}
+{% macro bar(value) -%}
+<svg class="bar" viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true"
+     focusable="false"><rect class="bar-track" width="100" height="8"/><rect
+     class="bar-fill" width="{{ value }}" height="8"/></svg>
 {%- endmacro %}
 
 {% block main %}
@@ -31,14 +44,15 @@
     Watch this ratio for sudden movement rather than for a target.
   </p>
   <table class="stat-table">
+    <caption class="visually-hidden">Questions by outcome</caption>
     <tbody>
       {% for status in ['answered', 'partial', 'refused'] %}
       {% set n = s.by_status.get(status, 0) %}
       <tr>
-        <th scope="row">{{ status }}</th>
+        <th scope="row" class="cap">{{ status }}</th>
         <td class="num">{{ n }}</td>
         <td class="num">{{ pct(n, s.total) }}%</td>
-        <td class="bar-cell"><span class="bar" style="width: {{ pct(n, s.total) }}%"></span></td>
+        <td class="bar-cell">{{ bar(pct(n, s.total)) }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -47,15 +61,14 @@
   {% if s.by_refusal %}
   <h3>Refusals by shape</h3>
   <table class="stat-table">
+    <caption class="visually-hidden">Refusals by shape</caption>
     <tbody>
       {% for shape, n in s.by_refusal.items() %}
       <tr>
-        <th scope="row">{{ shape.replace('_', ' ') }}</th>
+        <th scope="row" class="cap">{{ shape.replace('_', ' ') }}</th>
         <td class="num">{{ n }}</td>
         <td class="num">{{ pct(n, s.by_status.get('refused', 0)) }}%</td>
-        <td class="bar-cell">
-          <span class="bar" style="width: {{ pct(n, s.by_status.get('refused', 0)) }}%"></span>
-        </td>
+        <td class="bar-cell">{{ bar(pct(n, s.by_status.get('refused', 0))) }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -71,33 +84,35 @@
     two rows is the direct measure of how much that helps.
   </p>
   <table class="stat-table">
+    <caption class="visually-hidden">Answer rate by how the dataset was chosen</caption>
     <tbody>
       <tr>
         <th scope="row">Pinned from browsing</th>
         <td class="num">{{ s.pinned_answered }} / {{ s.pinned_total }}</td>
         <td class="num">{{ pct(s.pinned_answered, s.pinned_total) }}% answered</td>
+        <td class="bar-cell">{{ bar(pct(s.pinned_answered, s.pinned_total)) }}</td>
       </tr>
       <tr>
         <th scope="row">Found by searching</th>
         <td class="num">{{ s.searched_answered }} / {{ s.searched_total }}</td>
         <td class="num">{{ pct(s.searched_answered, s.searched_total) }}% answered</td>
+        <td class="bar-cell">{{ bar(pct(s.searched_answered, s.searched_total)) }}</td>
       </tr>
     </tbody>
   </table>
 </section>
 
+{# Ledger rows, not stat tiles: a big number over a small label is the hero-metric shape this
+   design system rejects, and these numbers explain each other rather than headline alone. #}
 <section class="stat-block">
   <h2>Time and cost</h2>
-  <dl class="stat-grid">
-    <div><dt>Median answer</dt><dd class="num">{{ (s.p50_ms / 1000) | round(1) }}s</dd></div>
-    <div><dt>95th percentile</dt><dd class="num">{{ (s.p95_ms / 1000) | round(1) }}s</dd></div>
-    <div><dt>LLM calls</dt><dd class="num">{{ s.llm_calls }}</dd></div>
-    <div><dt>Tokens in</dt><dd class="num">{{ '{:,}'.format(s.prompt_tokens) }}</dd></div>
-    <div><dt>Tokens out</dt><dd class="num">{{ '{:,}'.format(s.completion_tokens) }}</dd></div>
-    <div>
-      <dt>Cache hits</dt>
-      <dd class="num">{{ s.cache_hits }} / {{ s.fetched }}</dd>
-    </div>
+  <dl class="ledger">
+    <div><dt>Median time to an answer</dt><dd class="num">{{ (s.p50_ms / 1000) | round(1) }}&thinsp;s</dd></div>
+    <div><dt>Slowest 5% take at least</dt><dd class="num">{{ (s.p95_ms / 1000) | round(1) }}&thinsp;s</dd></div>
+    <div><dt>Language-model calls</dt><dd class="num">{{ s.llm_calls }}</dd></div>
+    <div><dt>Tokens read by the model</dt><dd class="num">{{ '{:,}'.format(s.prompt_tokens) }}</dd></div>
+    <div><dt>Tokens written by the model</dt><dd class="num">{{ '{:,}'.format(s.completion_tokens) }}</dd></div>
+    <div><dt>Downloads served from cache</dt><dd class="num">{{ s.cache_hits }} / {{ s.fetched }}</dd></div>
   </dl>
   <p class="stat-note">
     The model runs locally, so tokens cost time rather than money — they are here because they
@@ -107,15 +122,9 @@
 
 <section class="stat-block">
   <h2>Honesty guards</h2>
-  <dl class="stat-grid">
-    <div>
-      <dt>Narrations rejected</dt>
-      <dd class="num">{{ s.guard_rejections }}</dd>
-    </div>
-    <div>
-      <dt>Degraded planning</dt>
-      <dd class="num">{{ s.degraded }}</dd>
-    </div>
+  <dl class="ledger">
+    <div><dt>Narrations rejected by the claim guard</dt><dd class="num">{{ s.guard_rejections }}</dd></div>
+    <div><dt>Datasets chosen without the model (degraded planning)</dt><dd class="num">{{ s.degraded }}</dd></div>
   </dl>
   <p class="stat-note">
     A rejected narration means the claim guard caught the model stating something the table did
@@ -126,6 +135,4 @@
 </section>
 
 {% endif %}
-
-<p class="back"><a href="/">← Ask a question</a></p>
 {% endblock %}

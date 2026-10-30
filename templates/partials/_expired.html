@@ -20,10 +20,10 @@
   {% endif %}
 
   {% if question %}
-  <p class="reask">
-    <button type="button" class="example" data-question="{{ question }}">
-      Ask it again
-    </button>
+  {# Actually asks: the question is in the field above already, so "fill the field" would
+     look like a button that does nothing. #}
+  <p class="routes">
+    <button type="submit" form="ask" class="secondary">Ask it again</button>
   </p>
   {% endif %}
 </section>

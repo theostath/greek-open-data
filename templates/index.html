@@ -1,51 +1,76 @@
 {% extends "base.html" %}
 
 {% block main %}
-<h1 class="visually-hidden">Ask a question about Greek open data</h1>
+<section class="intro">
+  <h1>Ask Greek open data a question.</h1>
+  <p class="intro-lede">
+    Pythia finds the one dataset among ~21,800 published by Greek public bodies that fits your
+    question, reads it, and answers with its source attached — or tells you plainly that
+    nothing covers it.
+  </p>
+</section>
 
 {% include "partials/_ask.html" %}
+
+{# Outside #result on purpose: a broken model or a missing index must be visible before the
+   user types, and must not be wiped by the first result swap. #}
+<p class="health" id="health" role="status" hidden>
+  <strong>Heads up:</strong> <span id="health-detail"></span>
+</p>
 
 <div id="result" aria-live="polite">
   {# The teaching empty state. It is replaced wholesale by the first result. #}
   <section class="empty">
-    <h2>What this can answer</h2>
-    <p class="lede">
-      Pythia searches ~21,800 datasets published by Greek public bodies, picks the one that
-      fits your question, reads it, and shows you the figure with its source attached. It
-      answers in the language you ask in.
-    </p>
+    <div class="starters">
+      <h2 class="starters-head">Try one of these</h2>
+      <ul class="examples">
+        {% for example in examples %}
+        <li>
+          <button type="button" class="example" data-question="{{ example }}"
+                  dir="auto">{{ example }}</button>
+        </li>
+        {% endfor %}
+      </ul>
+      <p class="starters-browse">
+        Not sure what's in here? <a href="/explore">Browse by publisher or topic</a> and ask
+        about a dataset you can see.
+      </p>
+    </div>
 
-    <h3>Try one of these</h3>
-    <ul class="examples">
-      {% for example in examples %}
+    <h2 class="visually-hidden">What this can answer</h2>
+    {# A sequence the reader genuinely needs: it is what the progress screen will narrate while
+       they wait, and the three ways a question can end. #}
+    <ol class="how">
       <li>
-        <button type="button" class="example" data-question="{{ example }}">{{ example }}</button>
+        <h3>It finds a dataset</h3>
+        <p>Your wording is matched against every catalogue entry, then checked: does this
+          dataset really cover the question?</p>
       </li>
-      {% endfor %}
-    </ul>
+      <li>
+        <h3>It reads the data</h3>
+        <p>The figure is computed from the publisher's own CSV or JSON file, never estimated
+          or written by the model.</p>
+      </li>
+      <li>
+        <h3>It cites, or it declines</h3>
+        <p>Every answer names the dataset, publisher and date. Roughly half of questions find
+          nothing — and you are told so, with the nearest datasets.</p>
+      </li>
+    </ol>
 
-    <h3>Or look before you ask</h3>
-    <p class="lede">
-      If you don't know what's in here, <a href="/explore">browse by the body that publishes
-      it</a> — municipality, region, ministry — or by topic. Everything listed there is a
-      dataset Pythia can actually read, and asking from that page pins the dataset instead of
-      searching for it.
-    </p>
-
-    <h3>What it will not do</h3>
-    <ul class="plain">
-      <li>Invent a figure. If no dataset covers your question, it says so and shows you what
-        it looked at.</li>
-      <li>Join two datasets together. Greek regional codes changed with the
-        Kapodistrias–Kallikratis reforms, so joining on region names would produce confident
-        nonsense.</li>
-      <li>Hide staleness. Some datasets have not been updated in years; the answer says which
-        and when.</li>
-    </ul>
-
-    <p class="health" id="health" hidden>
-      <strong>Heads up:</strong> <span id="health-detail"></span>
-    </p>
+    <details class="limits">
+      <summary>What it will not do</summary>
+      <ul class="plain">
+        <li>Invent a figure. If no dataset covers your question, it says so and shows you what
+          it looked at.</li>
+        <li>Join two datasets together. Greek regional codes changed with the
+          Kapodistrias–Kallikratis reforms, so joining on region names would produce confident
+          nonsense.</li>
+        <li>Hide staleness. Some datasets have not been updated in years; the answer says which
+          and when.</li>
+        <li>Read PDFs or spreadsheets. Only CSV and JSON resources can be quoted from here.</li>
+      </ul>
+    </details>
   </section>
 </div>
 {% endblock %}
