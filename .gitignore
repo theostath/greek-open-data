@@ -23,3 +23,6 @@ prompts.txt
 
 # Impeccable design-tool state: live-session journals, receipts and hook cache.
 .impeccable/
+
+# reporting
+reports/
