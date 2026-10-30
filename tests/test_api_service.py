@@ -9,6 +9,11 @@ URLs, format resolution only where it is promised, and the third refusal shape.
 from __future__ import annotations
 
 import sqlite3
+import struct
+import threading
+import time
+from pathlib import Path
+from typing import Any
 
 import pytest
 from config import Settings
@@ -17,7 +22,10 @@ from tests import synthesis_fixtures as fx
 from pythia.api.service import Pipeline, build_recovery_context
 from pythia.ingest import db
 from pythia.ingest.models import DatasetRow, ResourceRow
+from pythia.llm import FakeLLM
+from pythia.planning import planner as planner_module
 from pythia.planning.models import PlanStatus, QueryPlan
+from pythia.retrieval import dense as dense_mod
 from pythia.retrieval.search import Candidate
 from pythia.synthesis import footer as footer_mod
 from pythia.synthesis.models import Answer, AnswerStatus
@@ -238,3 +246,167 @@ def test_the_normalized_question_is_carried_for_the_greeklish_case() -> None:
     ctx = build_recovery_context(plan, _refused(plan), conn=conn, settings=Settings())
 
     assert ctx.normalized_question == "πυρκαγιές"
+
+
+# --- the dense snapshot: injected or lazily loaded, never loaded by a health probe ----------
+
+_DENSE_MODEL = "fake/e5-test"
+_DENSE_VERSION = "2026-10-30T12:00:00.000003+00:00"
+
+
+def _dense_snapshot(tmp_path: Path) -> dense_mod.DenseIndex:
+    """A real 3-row ``DenseIndex`` loaded from a file catalogue (version = max embedded_at)."""
+    path = tmp_path / "catalog.sqlite"
+    conn = db.connect(path)
+    db.init_db(conn)
+    dense_mod.ensure_dense_schema(conn)
+    stamps = [
+        "2026-10-30T12:00:00.000001+00:00", _DENSE_VERSION, "2026-10-30T12:00:00.000002+00:00",
+    ]
+    for n, (dataset_id, stamp) in enumerate(zip(["ds-a", "ds-b", "ds-c"], stamps, strict=True)):
+        db.upsert_dataset(conn, _dataset(dataset_id, f"slug-{dataset_id}"))
+        vector = [0.0, 0.0, 0.0, 0.0]
+        vector[n] = 1.0
+        conn.execute(
+            "INSERT INTO dataset_embeddings (dataset_id, model, dim, sig, embedded_at, vector) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (dataset_id, _DENSE_MODEL, 4, "sig", stamp, struct.pack("<4f", *vector)),
+        )
+    conn.commit()
+    conn.close()
+    snapshot = dense_mod.load_dense_index(path, _DENSE_MODEL)
+    assert len(snapshot.ids) == 3 and snapshot.version == _DENSE_VERSION
+    return snapshot
+
+
+def test_an_injected_dense_snapshot_is_used_without_a_loader(tmp_path: Path) -> None:
+    """``Pipeline(dense=...)`` mirrors ``model=``: the injected snapshot is the one served."""
+    snapshot = _dense_snapshot(tmp_path)
+
+    pipeline = Pipeline(Settings(), dense=snapshot)
+
+    assert pipeline.dense is snapshot
+    assert pipeline.dense_info() == (3, _DENSE_VERSION)
+
+
+def test_the_dense_snapshot_is_not_loaded_until_something_needs_it(tmp_path: Path) -> None:
+    """Constructing a Pipeline loads nothing; the first access loads once and caches."""
+    snapshot = _dense_snapshot(tmp_path)
+    calls: list[int] = []
+
+    def loader() -> Any:
+        """Count loads."""
+        calls.append(1)
+        return snapshot
+
+    pipeline = Pipeline(Settings(), dense_loader=loader)
+
+    assert calls == []
+    assert pipeline.dense is snapshot
+    assert pipeline.dense is snapshot
+    assert calls == [1]
+
+
+def test_dense_info_is_none_before_a_load_and_never_triggers_one(tmp_path: Path) -> None:
+    """A health probe must not pay the ~89 MB load (P13); after a load it reports the snapshot."""
+    snapshot = _dense_snapshot(tmp_path)
+    calls: list[int] = []
+
+    def loader() -> Any:
+        """Count loads."""
+        calls.append(1)
+        return snapshot
+
+    pipeline = Pipeline(Settings(), dense_loader=loader)
+
+    assert pipeline.dense_info() is None
+    assert pipeline.dense_info() is None
+    assert calls == [], "dense_info() must never load the snapshot"
+
+    _ = pipeline.dense
+    assert pipeline.dense_info() == (3, _DENSE_VERSION)
+    assert calls == [1]
+
+
+def test_dense_info_is_none_without_a_snapshot_or_loader() -> None:
+    """A pipeline with neither a snapshot nor a loader reports nothing loaded."""
+    assert Pipeline(Settings()).dense_info() is None
+
+
+def test_two_threads_racing_the_first_use_load_the_snapshot_once(tmp_path: Path) -> None:
+    """The double-checked ``_dense_lock`` holds: a slow loader is called exactly once."""
+    snapshot = _dense_snapshot(tmp_path)
+    calls: list[int] = []
+    start = threading.Barrier(2)
+
+    def slow_loader() -> Any:
+        """Count loads, slowly enough that an unlocked check would let both threads in."""
+        calls.append(1)
+        time.sleep(0.2)
+        return snapshot
+
+    pipeline = Pipeline(Settings(), dense_loader=slow_loader)
+    seen: list[Any] = []
+
+    def first_use() -> None:
+        """Wait for the other thread, then touch the snapshot."""
+        start.wait()
+        seen.append(pipeline.dense)
+
+    threads = [threading.Thread(target=first_use) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+
+    assert calls == [1]
+    assert len(seen) == 2 and all(s is snapshot for s in seen)
+
+
+def test_warm_loads_the_dense_snapshot_beside_the_model(tmp_path: Path) -> None:
+    """Startup pays both loads, so the first question pays neither."""
+    snapshot = _dense_snapshot(tmp_path)
+    model_calls: list[int] = []
+    dense_calls: list[int] = []
+
+    def dense_loader() -> Any:
+        """Count dense loads."""
+        dense_calls.append(1)
+        return snapshot
+
+    pipeline = Pipeline(
+        Settings(), model_loader=lambda: model_calls.append(1) or "model",
+        dense_loader=dense_loader,
+    )
+
+    pipeline.warm()
+
+    assert model_calls == [1] and dense_calls == [1]
+    assert pipeline.dense_info() == (3, _DENSE_VERSION)
+
+
+def test_planning_receives_the_pipeline_dense_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``_run`` hands ``make_plan`` the lazily loaded snapshot as ``dense=`` (no chroma_path)."""
+    snapshot = _dense_snapshot(tmp_path)
+    seen: list[dict[str, Any]] = []
+
+    def fake_make_plan(question: str, **kw: Any) -> QueryPlan:
+        """Record the kwargs and refuse, so nothing is fetched."""
+        seen.append(kw)
+        return _plan(PlanStatus.NO_MATCH, [])
+
+    monkeypatch.setattr(planner_module, "make_plan", fake_make_plan)
+    conn = _catalog(("ds-a", "slug", []))
+    pipeline = Pipeline(
+        Settings(metrics_enabled=False), model_loader=lambda: "model",
+        dense_loader=lambda: snapshot, llm=FakeLLM({}),
+    )
+
+    pipeline._run("ερώτηση", None, conn, conn, None, None)
+
+    assert len(seen) == 1
+    assert seen[0]["dense"] is snapshot
+    assert seen[0]["model"] == "model"
+    assert "chroma_path" not in seen[0]
