@@ -35,7 +35,7 @@
       Something failed while answering — most often the publisher's own server, which has no
       uptime guarantee and is frequently slow or down. Asking again often works.
     </p>
-    {% if detail %}<p class="detail"><code>{{ detail }}</code></p>{% endif %}
+    {% if detail %}<p class="detail">Technical detail: <code>{{ detail }}</code></p>{% endif %}
 
   {% else %}
     <h2>Pythia failed</h2>
@@ -43,5 +43,12 @@
       This one is ours, not the publisher's. The question was not answered and nothing partial
       was shown, which is the intended behaviour: a half-computed figure is worse than none.
     </p>
+  {% endif %}
+
+  {% if blame in ("busy", "pipeline") %}
+  {# The question is still in the field, so retrying is one click, not a retype. #}
+  <p class="routes">
+    <button type="submit" form="ask" class="secondary">Ask again</button>
+  </p>
   {% endif %}
 </section>

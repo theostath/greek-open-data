@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% set section = 'explore' %}
 
 {% block title %}Browse the catalogue — Pythia{% endblock %}
 
@@ -8,29 +9,54 @@
 <p class="lede">
   Everything below is a dataset Pythia can read — {{ total }} public bodies publish CSV or
   JSON. Datasets published only as PDFs or spreadsheets are left out, because asking about
-  them would only produce a refusal.
-</p>
-
-<p class="explore-note">
-  Greek open data is organised <strong>by the body that publishes it</strong>, which is also
-  how it is organised geographically: a municipality publishes about its own area. There is a
-  <code>spatial</code> field in the catalogue, but it says
-  <span lang="el">Ελλάδα</span> on almost every record, so it is not used here.
+  them would only produce a refusal. Pick a publisher or topic, then ask about any dataset in
+  it directly.
 </p>
 
 {% set kinds = [
   ('municipality', 'Municipalities', 'A Δήμος publishes about its own area — this is the closest thing to browsing by place.'),
   ('region', 'Regions', 'A Περιφέρεια covers a whole region, so its data is usually broader than a municipality’s.'),
   ('ministry', 'Ministries', 'National scope, organised by portfolio.'),
-  ('national', 'Agencies and authorities', 'National bodies whose names carry no place. Not guessed at — see the note above.'),
+  ('national', 'Agencies and authorities', 'National bodies whose names carry no place. Not guessed at — see the note below.'),
 ] %}
+
+<nav class="jump" aria-label="Sections on this page">
+  <a href="#topics">Topics</a>
+  {% for key, heading, blurb in kinds %}{% if grouped.get(key) %}
+  <a href="#{{ key }}">{{ heading }}</a>
+  {% endif %}{% endfor %}
+</nav>
+
+{# Progressive: app.js reveals this and filters the lists in place. Without JavaScript the
+   page is the full directory, which still works with the browser's own find. #}
+<div class="filter" id="filter" hidden>
+  <label for="filter-input">Find a publisher or topic</label>
+  <input type="search" id="filter-input" autocomplete="off" dir="auto"
+         placeholder="π.χ. Χανίων, Κρήτης, Υγείας" aria-describedby="filter-count">
+  <p class="filter-count" id="filter-count" role="status"></p>
+</div>
+
+<section class="explore-group" id="topics">
+  <h2>By topic</h2>
+  <p class="explore-blurb">
+    The publisher's own classification, not ours. A dataset can carry more than one.
+  </p>
+  <ul class="themes directory">
+    {% for theme in themes %}
+    <li>
+      <a href="/explore/datasets?theme={{ theme.code | urlencode }}">{{ theme.label }}</a>
+      <span class="count num">{{ theme.dataset_count }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
 
 {% for key, heading, blurb in kinds %}
   {% if grouped.get(key) %}
-  <section class="explore-group">
+  <section class="explore-group" id="{{ key }}">
     <h2>{{ heading }}</h2>
     <p class="explore-blurb">{{ blurb }}</p>
-    <ul class="publishers">
+    <ul class="publishers directory">
       {% for publisher in grouped[key] %}
       <li>
         <a href="/explore/datasets?publisher={{ publisher.name | urlencode }}" dir="auto">
@@ -43,20 +69,10 @@
   {% endif %}
 {% endfor %}
 
-<section class="explore-group">
-  <h2>By topic</h2>
-  <p class="explore-blurb">
-    The publisher's own classification, not ours. A dataset can carry more than one.
-  </p>
-  <ul class="themes">
-    {% for theme in themes %}
-    <li>
-      <a href="/explore/datasets?theme={{ theme.code | urlencode }}">{{ theme.label }}</a>
-      <span class="count num">{{ theme.dataset_count }}</span>
-    </li>
-    {% endfor %}
-  </ul>
-</section>
-
-<p class="back"><a href="/">← Ask a question instead</a></p>
+<p class="explore-note">
+  Greek open data is organised <strong>by the body that publishes it</strong>, which is also
+  how it is organised geographically: a municipality publishes about its own area. There is a
+  <code>spatial</code> field in the catalogue, but it says
+  <span lang="el">Ελλάδα</span> on almost every record, so it is not used here.
+</p>
 {% endblock %}

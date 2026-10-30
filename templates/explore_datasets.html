@@ -1,16 +1,19 @@
 {% extends "base.html" %}
+{% set section = 'explore' %}
 
 {% block title %}{{ label }} — Pythia{% endblock %}
 
 {% block main %}
+<p class="crumbs"><a href="/explore">Browse</a> <span aria-hidden="true">/</span></p>
 <h1 dir="auto">{{ label }}</h1>
 
 <p class="lede">
-  {{ total }} dataset{{ '' if total == 1 else 's' }} here that Pythia can read.
-  Asking from this page <strong>pins the dataset</strong>, so the answer comes from the one you
-  picked rather than from a search.
+  {{ total }} dataset{{ '' if total == 1 else 's' }} here that Pythia can read. Choose
+  <strong>Ask about this</strong> on one of them and your question is answered from that
+  dataset alone, rather than from a search of the whole catalogue.
 </p>
 
+{% set ask_label = 'Your question' %}
 {% include "partials/_ask.html" %}
 
 <div id="result" aria-live="polite"></div>
@@ -20,29 +23,33 @@
   <li class="dataset">
     <h2 class="dataset-title" dir="auto">{{ dataset.title }}</h2>
     <p class="dataset-meta">
-      <span dir="auto">{{ dataset.publisher }}</span>
+      {# On a publisher page every row has the same publisher; on a topic page they differ. #}
+      {% if not publisher %}<span dir="auto">{{ dataset.publisher }}</span>{% endif %}
       {% if dataset.last_updated %}
-        · updated {{ dataset.last_updated[:10] }}
+        <span>Updated <time class="num" datetime="{{ dataset.last_updated }}">{{ dataset.last_updated|day }}</time></span>
       {% endif %}
-      ·
-      {% for fmt in dataset.formats %}<span class="fmt">{{ fmt }}</span>{% endfor %}
+      {# Readable formats in ink, the rest quiet: only CSV and JSON can be quoted from here. #}
+      <span class="fmts">
+      {% for fmt in dataset.formats %}<span class="fmt{% if fmt|upper in ('CSV', 'JSON') %} fmt-readable{% endif %}">{{ fmt }}</span>{% endfor %}
+      </span>
     </p>
-    <p class="dataset-actions">
+    <div class="dataset-actions">
       {% if dataset.resource_id %}
-      {# Posts the dataset title as the question and pins the resource. The title is a good
-         question here for the same reason the refusal screen advises it: it is the wording the
-         publisher chose. #}
-      <form hx-post="/ask" hx-target="#result" hx-swap="innerHTML"
+      {# Without JavaScript this posts the dataset title as the question and pins the resource
+         — the title is a good question for the same reason the refusal screen advises it.
+         With JavaScript, app.js pins the dataset into the ask form at the top instead, so the
+         question can be edited first and the answer lands where the eye already is. #}
+      <form class="pin-form" hx-post="/ask" hx-target="#result" hx-swap="innerHTML"
             hx-disabled-elt="find button">
         <input type="hidden" name="question" value="{{ dataset.title }}">
         <input type="hidden" name="resource_id" value="{{ dataset.resource_id }}">
-        <button type="submit">Ask about this</button>
+        <button type="submit" class="secondary">Ask about this</button>
       </form>
       {% endif %}
       <a class="dataset-source" href="https://data.gov.gr/dataset/{{ dataset.id }}"
          target="_blank" rel="noopener noreferrer">View on data.gov.gr<span
          class="visually-hidden"> (opens in a new tab)</span></a>
-    </p>
+    </div>
   </li>
   {% else %}
   <li class="dataset empty-list">Nothing readable here. Try another publisher or topic.</li>
@@ -63,6 +70,4 @@
   {% endif %}
 </nav>
 {% endif %}
-
-<p class="back"><a href="/explore">← All publishers and topics</a></p>
 {% endblock %}

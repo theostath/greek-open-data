@@ -5,7 +5,9 @@
 {% block main %}
 {# A permalink is reached by direct navigation, so it renders a whole document, not a
    fragment. The ask control stays, pre-filled: the next question is always one edit away. #}
-<h1 class="asked" dir="auto">{{ question }}</h1>
+{# The question is restated, visibly, in the result's own status line — this heading is for
+   the document outline and the tab title, not a second copy on screen. #}
+<h1 class="visually-hidden" dir="auto">{{ question }}</h1>
 
 {% include "partials/_ask.html" %}
 

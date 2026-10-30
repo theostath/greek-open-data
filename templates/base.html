@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Pythia — Greek open data{% endblock %}</title>
+  {# htmx 2 injects a <style> element for its indicator class unless told not to, and the CSP
+     (style-src 'self') blocks it — one console error per page load. No indicator is used. #}
+  <meta name="htmx-config" content='{"includeIndicatorStyles": false}'>
   {# No external requests of any kind: local-first means the page works with the cable out. #}
   <link rel="stylesheet" href="/static/app.css">
   <link rel="icon" href="data:,">
@@ -11,6 +14,7 @@
   <script src="/static/vendor/echarts.common.min.js" defer></script>
   <script src="/static/app.js" defer></script>
 </head>
+{% set section = section|default('ask') %}
 <body>
   <a class="skip" href="#main">Skip to content</a>
 
@@ -21,10 +25,13 @@
     <div class="masthead-art" aria-hidden="true"></div>
     <div class="masthead-inner">
       <a class="wordmark" href="/">Pythia</a>
-      <p class="standfirst">
-        Ask a question about Greek open data. Every answer names its source — or says plainly
-        that no dataset covers it.
-      </p>
+      {# The three things this product does, always one click away. Browse used to live only in
+         the colophon, below every answer, which is where nobody on deadline looks. #}
+      <nav class="sitenav" aria-label="Main">
+        <a href="/"{% if section == 'ask' %} aria-current="page"{% endif %}>Ask</a>
+        <a href="/explore"{% if section == 'explore' %} aria-current="page"{% endif %}>Browse</a>
+        <a href="/stats"{% if section == 'stats' %} aria-current="page"{% endif %}>Track record</a>
+      </nav>
     </div>
   </header>
 
@@ -37,10 +44,6 @@
       <p>
         Reads the <a href="https://data.gov.gr">data.gov.gr</a> catalogue. Figures come from the
         published datasets themselves; nothing here is modelled, forecast or interpolated.
-      </p>
-      <p class="colophon-links">
-        <a href="/explore">Browse the catalogue</a> ·
-        <a href="/stats">What this has answered</a>
       </p>
     </div>
   </footer>

@@ -16,6 +16,7 @@ import logging
 import re
 import sqlite3
 from contextlib import asynccontextmanager, contextmanager, suppress
+from datetime import UTC, datetime
 from typing import Any
 
 from config import Settings, get_settings
@@ -55,6 +56,41 @@ def _template_error(message: str) -> None:
 
 
 TEMPLATES.env.globals["fail"] = _template_error
+
+
+def _readable_moment(value: object, *, with_time: bool = False) -> str:
+    """Render an ISO timestamp as ``YYYY-MM-DD`` (optionally ``HH:MM UTC``) for a reader.
+
+    Presentation only: anything that does not parse — ``footer.build``'s explicit "not
+    recorded" literal, for one — is returned unchanged rather than sliced into nonsense.
+    """
+    text = str(value or "").strip()
+    try:
+        moment = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return text
+    # Normalise once so the date and the time of one timestamp never name different days.
+    suffix = ""
+    if moment.tzinfo is not None:
+        moment = moment.astimezone(UTC)
+        suffix = " UTC"
+    if not with_time:
+        return moment.date().isoformat()
+    return moment.strftime("%Y-%m-%d %H:%M") + suffix
+
+
+def _readable_date(value: object) -> str:
+    """Jinja filter: an ISO timestamp as its calendar date, in UTC when the offset is known."""
+    return _readable_moment(value)
+
+
+def _readable_time(value: object) -> str:
+    """Jinja filter: an ISO timestamp to the minute, in UTC when the offset is known."""
+    return _readable_moment(value, with_time=True)
+
+
+TEMPLATES.env.filters["day"] = _readable_date
+TEMPLATES.env.filters["minute"] = _readable_time
 
 #: Every asset is vendored locally, so a strict policy costs nothing. 'unsafe-inline' is absent
 #: from script-src deliberately: the chart spec is delivered in a JSON script tag, not as code.

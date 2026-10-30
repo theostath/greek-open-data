@@ -7,23 +7,27 @@
   script-src stay 'self' with no 'unsafe-inline'. It also means an ECharts option can never
   carry a JavaScript function — `formatter`, `renderItem` and the rest simply cannot survive
   JSON — though validate_spec refuses them by name regardless.
+
+  The caption sits ABOVE the plot and carries the title, so app.js hides the option's own
+  canvas title: one title, set in the page's type, instead of the same string twice.
 #}
 <figure class="chart">
+  <figcaption>
+    <span class="chart-title" dir="auto">{{ view.chart_title }}</span>
+    {% if view.chart_caveat %}
+    <span class="chart-caveat">{{ view.chart_caveat }}</span>
+    {% endif %}
+  </figcaption>
+
   <script type="application/json" class="chart-option">{{ view.chart|tojson }}</script>
   <div class="chart-target" role="img"
        aria-label="Chart: {{ view.chart_title }}. The figures it plots are listed in the table above."></div>
 
-  <figcaption>
-    <span class="chart-title">{{ view.chart_title }}</span>
-    {% if view.chart_caveat %}
-    <span class="chart-caveat">{{ view.chart_caveat }}</span>
-    {% endif %}
-    {% if view.footer %}
-    <span class="chart-source">
-      Source: {{ view.footer.publisher }} · {{ view.footer.dataset_title }}
-    </span>
-    {% endif %}
-  </figcaption>
+  {% if view.footer %}
+  {# Kept with the chart so a screenshot of the chart alone still carries its source. #}
+  <p class="chart-source" lang="en">Source: <span dir="auto">{{ view.footer.publisher }} ·
+    {{ view.footer.dataset_title }}</span></p>
+  {% endif %}
 
   <noscript>
     <p class="chart-fallback">The chart needs JavaScript. Every figure it plots is in the
