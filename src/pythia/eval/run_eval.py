@@ -185,6 +185,7 @@ def _run_planner(settings: Settings, report_path: Path | None) -> int:
         print(f"LLM unreachable at {settings.llm_base_url}; start Ollama first.")
         return 2
 
+    sha = _git_sha()  # before planning: a run takes minutes, and HEAD can move meanwhile
     conn = connect(settings.catalog_db_path)
     model = load_model(settings.embedding_model)
     llm = load_llm(settings)
@@ -216,7 +217,7 @@ def _run_planner(settings: Settings, report_path: Path | None) -> int:
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     report = {
-        "git_sha": _git_sha(),
+        "git_sha": sha,
         "llm_model": settings.llm_model,
         "llm_digest": _ollama_digest(settings),
         "counts": counts,
