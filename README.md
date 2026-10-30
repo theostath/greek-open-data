@@ -151,6 +151,12 @@ uv run python -m pythia.ingest.client_probe   # -> docs/api_probe_raw.md
 > With Greeklish normalization: **MRR 0.544** (greeklish slice 0.319 → 0.429).
 > With the opt-in cross-encoder reranker (`RERANK_ENABLED=true`): **MRR 0.652, R@1 0.62** —
 > but ~28 s/query on CPU, which is why it ships **off** (ADR-0002).
+>
+> [LEANN](https://github.com/StarTrail-org/LEANN), a storage-saving vector index that
+> recomputes embeddings at query time, was evaluated as a replacement for Chroma and not
+> adopted: about 84 MB saved, but minutes per query with e5-large on CPU. See
+> [`docs/benchmarks/leann-evaluation.md`](docs/benchmarks/leann-evaluation.md). The same run
+> showed exact dense search lifting MRR to 0.700 (#38).
 
 ## Data source
 
