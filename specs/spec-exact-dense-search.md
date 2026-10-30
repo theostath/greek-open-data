@@ -422,10 +422,12 @@ dispatch). Every test that asserts persistence uses a **file** database and chec
 7. All three `api/app.py::EXAMPLES` return ANSWERED, checked via
    `make answer QUESTION="…"` for each. One that refuses blocks the PR until it is
    replaced per CLAUDE.md §10.
-8. `git grep -niw -e chromadb -e chroma_path -e build_chroma_index -- src tests config.py
+8. `git grep -niw -e chromadb -e chroma_path -e build_chroma_index -- src config.py
    Makefile pyproject.toml` matches nothing, and `chromadb` is absent from `uv.lock`. A
    word-boundary search on the library's names only: `tests/test_api_contrast.py` uses
-   "chroma" as a colour-science term (P9).
+   "chroma" as a colour-science term (P9). `tests/` is excluded because tests there assert
+   the removal by name, e.g. `test_embed.py::test_chroma_helpers_are_removed` (amended in
+   stage 4: the earlier pathspec could never pass).
 9. `make check` is green locally, and CI is green on py3.11 and py3.12.
 10. ADR-0010 and the ADR-0001 status line are in the Chroma-removal commit; the docs listed
     in Step 8 are in the PR.
@@ -447,7 +449,7 @@ a model loads.
 - `uv run python -m pythia.retrieval.dense --bench`: criterion 4.
 - `uv run pythia-dev --no-browser`, then `curl -s 127.0.0.1:8000/healthz`: criterion 5.
 - `uv run python -m pythia.synthesis.answer --question "…"` (== `make answer`) for each EXAMPLE: criterion 7.
-- `git grep -niw -e chromadb -e chroma_path -e build_chroma_index -- src tests config.py Makefile pyproject.toml; grep -c chromadb uv.lock`: criterion 8.
+- `git grep -niw -e chromadb -e chroma_path -e build_chroma_index -- src config.py Makefile pyproject.toml; grep -c chromadb uv.lock`: criterion 8.
 - `uv run ruff check . && uv run mypy && uv run pytest -q`: criterion 9.
 
 ## Notes
