@@ -38,7 +38,7 @@ on this project being open source — Highcharts is the live example — are onl
 2. **Provenance is mandatory.** Every answer names the source dataset, its publisher, and
    its `last_updated`. Staleness is surfaced, never hidden.
 3. **Local-first, reproducible.** Runs fully on a laptop. No managed services required for
-   the MVP. SQLite + a local vector store + local embeddings.
+   the MVP. SQLite (catalogue, FTS5 and vectors) + local embeddings.
 4. **Deterministic where possible.** LLMs do language understanding and synthesis only.
    Dataset selection, parameter extraction, and data fetching must be inspectable and
    testable, not vibes.
@@ -56,7 +56,9 @@ on this project being open source — Highcharts is the live example — are onl
 - **Backend/API:** FastAPI + Uvicorn
 - **Frontend (MVP):** server-rendered Jinja2 + HTMX (single coherent app, no SPA build step)
 - **Metadata store:** SQLite (one file, committed schema, migrations as plain SQL)
-- **Vector store:** Chroma (persistent, local). Swap to pgvector only if scale demands it.
+- **Dense search:** exact cosine over e5 vectors in `catalog.sqlite` (`retrieval/dense.py`,
+  ADR-0010). Not an ANN index: HNSW lost ~30% of true neighbours on real E5 query vectors.
+  Revisit past ~500k rows.
 - **Embeddings:** `intfloat/multilingual-e5-large` via `sentence-transformers` (strong Greek,
   runs locally, zero API cost). Hosted fallback: Voyage AI multilingual.
 - **LLM (planning + synthesis):** local **Qwen via Ollama** (OpenAI-compatible API at
@@ -89,8 +91,9 @@ If you believe a swap is warranted, write a 3-line ADR in `docs/adr/` and procee
 ├── .github/workflows/ci.yml     # ruff + mypy + pytest on py3.11 + py3.12 (§11)
 ├── .claude/skills/eval-gate/    # the §9/§11 retrieval eval ritual, incl. a preflight script
 ├── data/
-│   ├── catalog.sqlite           # harvested metadata + datasets_fts (gitignored)
-│   └── chroma/                  # vector index (gitignored)
+│   ├── catalog.sqlite           # metadata + datasets_fts + dataset_embeddings (gitignored)
+├── scripts/                     # one-off tools needing chromadb (migration, recall probe);
+│                                # delete after 0.2.0
 ├── specs/                       # per-phase implementation specs (Phases 4, 5, 6)
 ├── tests/                       # pytest suite; mirrors the module layout below
 │   ├── synthesis_fixtures.py    # shared Phase 6 tables, built from live-probed resources
@@ -107,7 +110,8 @@ If you believe a swap is warranted, write a 3-line ADR in `docs/adr/` and procee
 │   │   ├── db.py                # SQLite persistence (idempotent upserts)
 │   │   └── schema.sql           # committed catalog schema
 │   ├── retrieval/               # Phase 3: embed + hybrid search
-│   │   ├── embed.py             # e5 embeddings + incremental Chroma index
+│   │   ├── embed.py             # e5 model load + query/passage embedding
+│   │   ├── dense.py             # vectors in SQLite + exact, tie-safe search (ADR-0010)
 │   │   ├── lexical.py           # FTS5 BM25 + RRF fusion
 │   │   ├── index.py             # `make index`: build dense + lexical indexes
 │   │   ├── rerank.py            # cross-encoder reorder, DEFAULT-OFF (ADR-0002)
@@ -149,6 +153,7 @@ If you believe a swap is warranted, write a 3-line ADR in `docs/adr/` and procee
 │   │   └── dev.py               # `uv run pythia-dev`: preflight + serve + open a browser
 │   └── eval/                    # Phase 3+: golden set + scoring
 │       ├── golden_questions.yaml
+│       ├── golden_negative.yaml # off-topic questions; the planner must refuse them
 │       └── run_eval.py
 ├── templates/                   # Jinja2 + HTMX (Phase 7)
 │   └── partials/                # _ask, _progress, _result, _answer, _refusal, _footer,
@@ -221,8 +226,9 @@ Keep this list in sync with the Makefile.
 make setup        # uv sync (pre-commit hooks: not wired yet, Phase 8)
 make probe        # run ingest/client_probe.py, write docs/api_probe_raw.md
 make harvest      # pull catalog metadata into data/catalog.sqlite
-make index        # build/refresh the Chroma + FTS5 indexes (incremental)
+make index        # build/refresh the dense + FTS5 indexes (incremental; restart the server after)
 make eval         # run the golden-question RETRIEVAL eval, print metrics
+make eval-planner # end-to-end planner gate on golden + negative sets (needs Ollama, ~20 min)
 make fetch RESOURCE_ID=<id>   # Phase 5: fetch one resource -> typed table
 make cache-purge  # drop access-cache rows past the TTL ceiling
 make answer QUESTION="..."    # Phase 6: grounded answer + chart + footer
@@ -278,12 +284,15 @@ Status legend: [ ] not started · [~] in progress · [x] done
       (124 non-dataset/inactive skipped); `last_updated`=`metadata_modified` on every row. Note:
       `name` slug is **not unique** upstream (2 collisions) and deep pagination needs an explicit
       `sort`. Run with `make harvest`.
-- [x] **Phase 3 — Retrieval:** hybrid `find_dataset()` = dense (Chroma, e5) + lexical (SQLite
+- [x] **Phase 3 — Retrieval:** hybrid `find_dataset()` = dense (e5) + lexical (SQLite
       FTS5/BM25) fused with RRF (ADR-0001); `make index` builds both, `make eval` scores a
       26-question golden set. **Baseline (e5-small, n=26): MRR 0.48, R@5 0.58, R@10 0.65**
       (el 0.56 / en 0.52 / greeklish 0.30 MRR). Greeklish is the weak spot — next levers:
       e5-large swap, reranker (ADR-0002), Greeklish→Greek transliteration. TLS to Hugging Face
-      goes through the OS trust store (`pythia/net.py`).
+      goes through the OS trust store (`pythia/net.py`). **Since 2026-10-30 the dense leg is
+      exact search** (ADR-0010; Chroma's HNSW returned 71% of the true top-10): e5-large +
+      normalisation **MRR 0.700, R@1 15/26, R@10 24/26** (el 0.709 / en 0.786 / greeklish
+      0.600), up from 0.544 / 12/26 / 18/26.
 - [x] **Phase 4 — Planning:** `make_plan()` (`planning/planner.py`) → typed `QueryPlan`
       (dataset + CSV/JSON resource + validated intent params) via normalize → retrieve →
       select → one LLM call. LLM = local **Qwen/Ollama** behind a `Protocol`+fake
@@ -299,8 +308,9 @@ Status legend: [ ] not started · [~] in progress · [x] done
       Relevance is now gated **before** resource selection, so `unsupported` means
       "relevant but no CSV/JSON" and off-topic questions correctly return `no_match`.
       **End-to-end on the golden set (n=26): 6 MATCHED on the correct dataset, 0 matched
-      on a wrong one, 6 UNSUPPORTED (right dataset, no CSV/JSON), 12 NO_MATCH.** Zero
-      wrong matches — grounded-or-silent holds. The ceiling is retrieval R@1 (12/26 put
+      on a wrong one, 6 UNSUPPORTED (right dataset, no CSV/JSON), 2 UNSUPPORTED on a wrong
+      dataset (q01, q02), 12 NO_MATCH.** Zero wrong *matches*; the two wrong UNSUPPORTEDs
+      went uncounted until `run_eval --planner` (2026-10-30) made both shapes a gate. The ceiling is retrieval R@1 (12/26 put
       the right dataset first) and resource format, **not** the planner: both are
       Phase 3 / Phase 5 concerns.
 - [x] **Phase 5 — Access:** `fetch_resource()`/`fetch_for_plan()` (`access/data_client.py`)
@@ -356,7 +366,7 @@ Part 3, which is untracked; issue links below survive it):
   plenty). **Geography lives in `org_title`:** Δήμος Χανίων has 2,228 datasets against 86
   text mentions of Χανιά. Browse must be deterministic SQL over publisher/theme, filtered to
   the 24.4% of datasets with a CSV/JSON resource, handing off via `resource_id` — which
-  **bypasses retrieval**, the measured ceiling (R@1 0.46). Do **not** route a "what data do you
+  **bypasses retrieval**, the measured ceiling (R@1 0.58). Do **not** route a "what data do you
   have from X?" question through `answer_question`: it is a catalogue question, not a data
   question, and `make_plan` would return `no_match`.
 - **LLM chart tooling / Highcharts — no issue yet, framing unsettled.** Two blockers before
@@ -401,7 +411,7 @@ secrets leaked; and any new external-API assumption is reflected in `docs/api_fi
 
 Still genuinely open:
 
-- **Does guided browsing beat better retrieval?** R@1 is 0.46 and issue #18 routes *around*
+- **Does guided browsing beat better retrieval?** R@1 is 0.58 and issue #18 routes *around*
   retrieval rather than improving it. Both are worth doing; which pays back sooner is untested.
 - **Can the LLM be given chart control without breaking ADR-0007?** See §8's queued note — the
   enum-only version preserves the contract, the spec-emitting version does not.
@@ -436,8 +446,8 @@ Repo-specific notes only:
 Because §9 ties "done" to eval metrics, a `release/*` branch is the right place to
 re-run `make eval` on the release candidate and record the numbers in the tag message —
 retrieval quality is the product here, so a release without current metrics is untagged
-work. Note the eval is only meaningful on a **tombstone-free** Chroma collection (§8,
-Phase 4 notes); a rebuilt-by-upsert index makes the numbers non-reproducible.
+work. Run the eval-gate preflight first: the eval is only meaningful when it reports 0 stale
+and 0 orphaned vectors.
 
 ### CI
 
