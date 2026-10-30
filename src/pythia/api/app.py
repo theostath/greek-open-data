@@ -29,6 +29,7 @@ from pythia.api.jobs import JobRejected, JobStatus, JobStore, Miss
 from pythia.api.service import Pipeline
 from pythia.api.view import to_view
 from pythia.logging_setup import get_logger, log_event
+from pythia.retrieval.dense import count_vectors
 
 LOGGER_NAME = "pythia.api"
 
@@ -312,7 +313,9 @@ def _register_routes(app: FastAPI) -> None:
         return TEMPLATES.TemplateResponse(request, "stats.html", {"s": result})
 
     @app.get("/healthz")
-    def healthz(settings: Settings = Depends(get_settings_dep)) -> JSONResponse:
+    def healthz(
+        request: Request, settings: Settings = Depends(get_settings_dep)
+    ) -> JSONResponse:
         """Report readiness field by field.
 
         Never ``settings.model_dump()`` — that would publish ``data_gov_gr_token`` and
@@ -320,7 +323,9 @@ def _register_routes(app: FastAPI) -> None:
         ``ingest.db.connect()`` *creates* a missing database: an existence check reports green
         on a fresh checkout while every question silently returns ``no_match``.
         """
-        return JSONResponse(health(settings))
+        pipeline = getattr(request.app.state, "pipeline", None)
+        info = pipeline.dense_info() if pipeline is not None else None
+        return JSONResponse(health(settings, info))
 
 
 @contextmanager
@@ -351,16 +356,36 @@ def _fragment(
     return TEMPLATES.TemplateResponse(request, name, context, status_code=status_code)
 
 
-def health(settings: Settings) -> dict[str, Any]:
-    """Collect the readiness facts ``/healthz`` publishes."""
+def health(
+    settings: Settings, dense_info: tuple[int, str | None] | None = None
+) -> dict[str, Any]:
+    """Collect the readiness facts ``/healthz`` publishes.
+
+    ``dense_info`` is the running snapshot's ``(count, version)``, or ``None`` when no
+    pipeline has loaded one. A snapshot that differs from the table means the index was
+    rebuilt after startup and the server needs a restart.
+    """
     datasets = _count(settings.catalog_db_path, "SELECT count(*) FROM datasets")
     lexical = _count(settings.catalog_db_path, "SELECT count(*) FROM datasets_fts")
-    dense = _dense_count(settings.chroma_path)
+    dense, version = count_vectors(settings.catalog_db_path, settings.embedding_model)
+    loaded = dense_info[0] if dense_info is not None else None
+    loaded_version = dense_info[1] if dense_info is not None else None
+    degraded = (
+        not datasets
+        or not lexical
+        or not dense
+        or dense < datasets
+        or loaded == 0
+        or (dense_info is not None and dense_info != (dense, version))
+    )
     return {
-        "status": "ok" if datasets and lexical and dense else "degraded",
+        "status": "degraded" if degraded else "ok",
         "datasets": datasets,
         "lexical_index": lexical,
         "dense_index": dense,
+        "dense_version": version,
+        "dense_loaded": loaded,
+        "dense_loaded_version": loaded_version,
         "llm_reachable": _llm_reachable(settings),
         "llm_model": settings.llm_model,
     }
@@ -378,15 +403,6 @@ def _count(db_path: str, sql: str) -> int:
     return 0
 
 
-def _dense_count(chroma_path: str) -> int:
-    """Count vectors in the Chroma collection, or 0 if it cannot be opened."""
-    with suppress(Exception):
-        from pythia.retrieval.embed import _collection
-
-        return int(_collection(chroma_path, "datasets").count())
-    return 0
-
-
 def _llm_reachable(settings: Settings) -> bool:
     """One short probe of the Ollama endpoint, so the empty state can warn before typing."""
     with suppress(Exception):
@@ -401,8 +417,8 @@ def _llm_reachable(settings: Settings) -> bool:
 #: one that refuses is a worse first run than an empty box.
 #:
 #: **Each was verified live on 2026-08-06 and returned ANSWERED.** Re-verify after any change
-#: to retrieval, since R@1 is what decides these (only 12/26 golden questions put the right
-#: dataset first). Two rejected in that run and are kept here as a warning, not as candidates:
+#: to retrieval, since R@1 is what decides these (current golden-set numbers live in
+#: CLAUDE.md §8). Two rejected in that run and are kept here as a warning, not as candidates:
 #: "Πόσοι εμβολιασμοί ανά περιφέρεια;" → no_match, and
 #: "Πόσες ημέρες με ακραίο κίνδυνο δασικής πυρκαγιάς;" → unsupported.
 #:

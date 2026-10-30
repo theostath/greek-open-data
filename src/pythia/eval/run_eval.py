@@ -27,6 +27,7 @@ from pythia.logging_setup import configure_logging, get_logger, log_event
 from pythia.planning.models import PlanStatus, QueryPlan
 from pythia.planning.normalize import normalize_question
 from pythia.planning.planner import make_plan
+from pythia.retrieval.dense import load_dense_index
 from pythia.retrieval.embed import load_model
 from pythia.retrieval.rerank import Scorer, load_reranker
 from pythia.retrieval.search import find_dataset
@@ -188,6 +189,7 @@ def _run_planner(settings: Settings, report_path: Path | None) -> int:
     sha = _git_sha()  # before planning: a run takes minutes, and HEAD can move meanwhile
     conn = connect(settings.catalog_db_path)
     model = load_model(settings.embedding_model)
+    dense = load_dense_index(settings.catalog_db_path, settings.embedding_model)
     llm = load_llm(settings)
     items: list[tuple[str, str, str | None]] = [
         (q.id, q.question, q.expected_id) for q in load_golden()
@@ -198,7 +200,7 @@ def _run_planner(settings: Settings, report_path: Path | None) -> int:
     counts = {b.value: 0 for b in Bucket}
     for qid, text, expected_id in items:
         plan = make_plan(
-            text, conn=conn, model=model, chroma_path=settings.chroma_path, llm=llm,
+            text, conn=conn, model=model, dense=dense, llm=llm,
             settings=settings,
         )
         result = bucket(plan, expected_id)
@@ -259,6 +261,7 @@ def main(argv: list[str] | None = None) -> int:
 
     conn = connect(settings.catalog_db_path)
     model = load_model(settings.embedding_model)
+    dense = load_dense_index(settings.catalog_db_path, settings.embedding_model)
     reranker: Scorer | None = (
         load_reranker(settings.rerank_model) if settings.rerank_enabled else None
     )
@@ -278,7 +281,7 @@ def main(argv: list[str] | None = None) -> int:
             text,
             conn=conn,
             model=model,
-            chroma_path=settings.chroma_path,
+            dense=dense,
             top_k=max(K_VALUES),
             reranker=reranker,
             rerank_pool=settings.rerank_pool,

@@ -12,7 +12,7 @@ probe:  ## run the Phase 1 API discovery probe -> docs/api_probe_raw.md
 harvest:  ## Phase 2: harvest catalog metadata -> data/catalog.sqlite
 	uv run python -m pythia.ingest.harvest
 
-index:  ## Phase 3: build dense (Chroma) + lexical (FTS5) indexes
+index:  ## Phase 3: build dense + lexical (FTS5) indexes
 	uv run python -m pythia.retrieval.index
 
 eval:  ## Phase 3: run the golden-question RETRIEVAL eval

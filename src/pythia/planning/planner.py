@@ -26,6 +26,7 @@ from pythia.logging_setup import get_logger, log_event
 from pythia.planning.models import AGGREGATIONS, PlanStatus, QueryParams, QueryPlan
 from pythia.planning.normalize import normalize_question
 from pythia.planning.select import access_path, select_resource
+from pythia.retrieval.dense import DenseIndex
 from pythia.retrieval.rerank import Scorer
 from pythia.retrieval.search import Candidate, confidence, find_dataset
 
@@ -44,7 +45,7 @@ def make_plan(
     *,
     conn: sqlite3.Connection,
     model: SentenceTransformer,
-    chroma_path: str,
+    dense: DenseIndex,
     llm: LLMClient,
     reranker: Scorer | None = None,
     reference_date: date | None = None,
@@ -65,7 +66,7 @@ def make_plan(
         )
 
     candidates = find_dataset(
-        normalized, conn=conn, model=model, chroma_path=chroma_path,
+        normalized, conn=conn, model=model, dense=dense,
         top_k=cfg.retrieval_top_k, reranker=reranker, rerank_pool=cfg.rerank_pool,
     )
     if not candidates:
