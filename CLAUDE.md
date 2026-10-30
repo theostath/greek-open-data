@@ -310,9 +310,10 @@ Status legend: [ ] not started · [~] in progress · [x] done
       **End-to-end on the golden set (n=26): 6 MATCHED on the correct dataset, 0 matched
       on a wrong one, 6 UNSUPPORTED (right dataset, no CSV/JSON), 2 UNSUPPORTED on a wrong
       dataset (q01, q02), 12 NO_MATCH.** Zero wrong *matches*; the two wrong UNSUPPORTEDs
-      went uncounted until `run_eval --planner` (2026-10-30) made both shapes a gate. The ceiling is retrieval R@1 (12/26 put
-      the right dataset first) and resource format, **not** the planner: both are
-      Phase 3 / Phase 5 concerns.
+      went uncounted until `run_eval --planner` (2026-10-30) made both shapes a gate. **On
+      exact dense search (2026-10-30): 8 MATCHED correct, 0 wrong, 7 UNSUPPORTED correct,
+      the same 2 wrong UNSUPPORTED, 9 NO_MATCH; 8/8 negative questions refused.** The ceiling
+      is retrieval R@1 (now 15/26) and resource format, **not** the planner.
 - [x] **Phase 5 — Access:** `fetch_resource()`/`fetch_for_plan()` (`access/data_client.py`)
       → typed `TableData` via DataStore (`sort=_id asc`, paged) or file download. Layered
       pure modules: `guard` (scheme/host/IP policy, manual ≤3 redirects — **75% of CSV/JSON
@@ -402,9 +403,10 @@ secrets leaked; and any new external-API assumption is reflected in `docs/api_fi
   `DATA_GOV_GR_TOKEN` is an unused defensive placeholder.
 - ~~Which datasets are tabular-and-fresh enough to be the demo set?~~ **Resolved (Phases 6–7):**
   Phase 6 was designed against four live-probed resources; Phase 7's empty-state examples are
-  three questions **verified live to return ANSWERED** (`api/app.py::EXAMPLES`). **Re-verify
-  those after any retrieval change** — R@1 is what decides them, and one of the three
-  originally chosen turned out to refuse.
+  three questions in `api/app.py::EXAMPLES`. **Re-verify them after any retrieval change** with
+  `make answer` — R@1 decides them, and one of the three originally chosen turned out to refuse.
+  As of 2026-10-30 the vaccination and road-accident questions return ANSWERED and the asylum
+  one returns PARTIAL (top categories only), identically before and after ADR-0010.
 - ~~Embedding strategy: title+description only, or include column/field names?~~ **Resolved
   (Phase 3):** embed `title + notes + tags` plus their English translations (the `embed_text`
   column); per-resource field names deferred — revisit if eval shows a gap.

@@ -122,6 +122,7 @@ number. Rows marked *Chroma* are history: the dense leg was approximate until AD
 |---|---|---|---|---|---|---|
 | **exact dense + normalization** (shipped, 2026-10-30) | **0.700** | **0.58** | **0.92** | 0.709 | 0.786 | 0.600 |
 | exact dense, no normalization | 0.625 | 0.54 | 0.85 | 0.709 | 0.786 | 0.319 |
+| exact dense + normalization + reranker (default-off, ~28 s/query) | 0.817 | 0.77 | 0.92 | 0.896 | 0.857 | 0.643 |
 | *Chroma*, no normalization | 0.515 | 0.42 | 0.69 | 0.595 | 0.571 | 0.319 |
 | *Chroma* + normalization (ADR-0005) | 0.544 | 0.46 | 0.69 | 0.595 | 0.571 | 0.429 |
 | *Chroma* + reranker, normalization off (ADR-0002) | 0.652 | 0.62 | | 0.729 | 0.714 | 0.457 |
