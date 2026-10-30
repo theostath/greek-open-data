@@ -2,7 +2,7 @@
 
 - **Issue:** #38 · **Branch:** `feat/exact-dense-search` · **Intent:** `specs/intent-exact-dense-search.md`
 - **Type:** enhancement (retrieval quality) + refactor (storage) · **Complexity:** medium
-- **Status:** stage 3 closed. The panel's findings (P1–P30) are fixed or overridden below; ready for dispatch.
+- **Status:** implemented on `feat/exact-dense-search` (2026-10-30). Outcome per criterion at the end.
 - **Prerequisite:** PR #39 (`docs/leann-evaluation`) is merged into `develop` and this branch
   is rebased onto it, so the evidence ADR-0010 cites is in the repository (P8).
 
@@ -523,3 +523,22 @@ Consolidated findings. "×n" is how many judges raised it independently.
 | P28 | Doc and config surfaces missing (mypy override, Makefile, SKILL baselines, CLAUDE §2/§10, CHANGELOG, comments) | MINOR ×2 | **Fixed:** all listed in Relevant Files |
 | P29 | EXAMPLES check has no command or failure rule | MINOR ×1 | **Fixed:** `make answer` per example; a refusal blocks |
 | P30 | Phase 4 "0 wrong" summary undercounted (6 vs 8 UNSUPPORTED) | MINOR ×1 | **Fixed:** CLAUDE.md §8 corrected in Step 8 |
+
+## Outcome (2026-10-30)
+
+| AC | Result |
+|---|---|
+| 1 | **Met.** MRR 0.700, R@1 15/26, R@3 21/26, R@10 24/26; el 0.709, en 0.786, greeklish 0.600. Identical to the reference run, per question |
+| 2 | Ran: reranker + normalisation 0.817 MRR, R@1 20/26 (0.644 on Chroma). Informational; reranker stays off |
+| 3 | Ran: normalisation off 0.625 MRR; ADR-0005 updated, decision stands |
+| 4 | **Met.** Load 0.60 s; search p50 1.51 ms, p95 2.29 ms |
+| 5 | **Met.** Migration 38 s; preflight 0 stale / 0 orphaned; `make index` `dense=0`; live `/healthz` ok, 21,806 stored = loaded, same version |
+| 6 | **Met.** Planner gate exit 0; 0 MATCHED_WRONG; no question newly wrong; 8/8 negatives refused; MATCHED_CORRECT 6 → 8 |
+| 7 | **Not met as written, unchanged by this work.** Two examples return ANSWERED; the asylum example returns PARTIAL, identically on the pre-swap code. Not a refusal, so it does not block; recorded in CLAUDE.md §10 |
+| 8 | **Met** with the amended pathspec (6d678d8) |
+| 9 | Local: 732 passed, ruff and mypy clean. CI: see the PR |
+| 10 | **Met.** ADR-0010 and the ADR-0001 line are in ae05c06 |
+
+Re-entries during stage 4, classified: the `/api/show` digest bug and the SHA-capture timing
+were code wrong, spec right (fixed in place); the criterion 8 pathspec was spec wrong
+(amended first, 6d678d8).
