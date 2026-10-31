@@ -14,6 +14,12 @@ the same from a terminal, and both share one orchestration path. Phase 8 (eval &
 next. See the [roadmap](#roadmap), and the [changelog](CHANGELOG.md) for what this release
 contains and — just as importantly — what it does not yet do well.
 
+**On `develop`, not yet released:**
+- **Exact dense search** ([ADR-0010](docs/adr/0010-exact-dense-search.md)), which lifts
+  golden-set MRR from 0.544 to 0.700.
+- **A redesigned web interface.** Every result now states its outcome and cites its source
+  next to the claim, and every refusal offers a next step.
+
 **Pythia is open source, Apache-2.0.** Public data deserves public tooling: the datasets this
 queries are published by Greek public bodies for anyone to use, and a tool that makes them
 usable should carry the same freedom. Apache-2.0 was chosen over MIT for its explicit patent
@@ -27,9 +33,12 @@ obligations that would put them off. Contributions are welcome under the same te
 | | |
 | --- | --- |
 | ![Asking a question](docs/img/home.webp) | ![An answered question with its chart](docs/img/answer.webp) |
-| **Ask** — Greek, Greeklish or English. | **Answer** — the figure, its provenance, then the chart. The caveat above the chart is part of the answer, not a footnote: this table hides 75 grouped categories and says so. |
+| **Ask:** Greek, Greeklish or English. Example questions and a link to browse are there for when you don't know what's in the catalogue. | **Answer:** the outcome first (this one is *Partial*), then the claim, its limits, and the source: dataset, publisher, last update and coverage. The figures table and chart follow. This real answer took 106 s on a laptop CPU. |
 | ![Browsing the catalogue](docs/img/explore.webp) | ![Outcome statistics](docs/img/stats.webp) |
-| **Explore** — browse by publisher and theme, filtered to the 24% of datasets that are actually readable. Asking from here pins the resource and skips retrieval entirely. | **Stats** — leads with the refusal mix, because under grounded-or-silent that ratio *is* the health signal. No question text is stored. |
+| **Browse:** by publisher or topic, limited to datasets Pythia can actually read. The filter ignores accents, so `χανιων` finds Δήμος Χανίων. Asking from here pins that dataset and skips retrieval. | **Track record:** leads with the mix of answers and refusals, because under grounded-or-silent that ratio is the health signal. No question text is stored. |
+
+Every refusal names its reason and offers two ways on: rephrase the question, or browse by
+publisher.
 
 ## Why
 
@@ -108,8 +117,9 @@ cp .env.example .env        # then edit .env
 # the configured model (config.llm_model, default qwen3.5:9b):
 #   ollama pull qwen3.5:9b
 
-# 3. Verify the toolchain is green
-uv run ruff check . && uv run mypy && uv run pytest -q
+# 3. Verify the toolchain is green (offline, as CI runs it: the embedding tests otherwise
+#    send flaky HEAD requests to huggingface.co)
+uv run ruff check . && uv run mypy && HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 uv run pytest -q
 
 # 4. Probe the live API (read-only) and refresh the evidence file
 uv run python -m pythia.ingest.client_probe   # -> docs/api_probe_raw.md
@@ -125,10 +135,11 @@ uv run python -m pythia.ingest.client_probe   # -> docs/api_probe_raw.md
 | --- | --- | --- |
 | Install deps | `make setup` | `uv sync` |
 | API probe | `make probe` | `uv run python -m pythia.ingest.client_probe` |
-| Lint + types + tests | `make check` | `uv run ruff check . && uv run mypy && uv run pytest -q` |
+| Lint + types + tests | `make check` | `uv run ruff check . && uv run mypy && HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 uv run pytest -q` |
 | Harvest catalog | `make harvest` | `uv run python -m pythia.ingest.harvest` |
 | Build indexes | `make index` | `uv run python -m pythia.retrieval.index` |
 | Retrieval eval | `make eval` | `uv run python -m pythia.eval.run_eval` |
+| Planner gate (needs Ollama, ~20 min) | `make eval-planner` | `uv run python -m pythia.eval.run_eval --planner` |
 | Fetch one resource | `make fetch RESOURCE_ID=<id>` | `uv run python -m pythia.access.data_client --resource-id <id>` |
 | Purge stale cache rows | `make cache-purge` | *(see the Makefile)* |
 | Answer a question | `make answer QUESTION="..."` | `uv run python -m pythia.synthesis.answer --question "..."` |
@@ -204,8 +215,10 @@ The catalogue therefore weighs ~235 MB, and **deleting it deletes the vectors to
       table; a claim guard rejects any figure, magnitude-word, trend or superlative the
       computed facts do not license (ADR-0007).
 - [x] **Phase 7** — Interface: one FastAPI process serving Jinja2 + HTMX (ADR-0008) —
-      `uv run pythia-dev`. Includes `/explore` (deterministic catalogue browsing, no LLM) and
-      `/stats`. Assets are vendored and hash-asserted; contrast is measured, not claimed.
+      `uv run pythia-dev`. Includes Browse (`/explore`, deterministic catalogue browsing, no LLM)
+      and Track record (`/stats`). Assets are vendored and hash-asserted; contrast is measured,
+      not claimed. Redesigned after 0.1.0 (#42) so each result states its outcome, cites its
+      source next to the claim, and offers a way forward when it refuses.
 - [ ] **Phase 8** — Eval & hardening: expand the golden set beyond n=26, observability,
       honesty checks.
 

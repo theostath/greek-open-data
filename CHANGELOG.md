@@ -16,12 +16,30 @@ All notable changes to this project are documented here. The format follows
   cites the same dataset.
 - `/healthz` reports the loaded index beside the stored one and degrades when they differ:
   **restart `pythia-dev` after `make index`.**
+- **The web interface is reorganised around the answer, its source and what to do next** (#42).
+  - **Navigation:** a compact masthead with Ask · Browse · Track record.
+  - **Results:** every result opens with its outcome (Answered / Partial answer / Not answered)
+    and the question restated. The order is claim → limits → source → figures → chart, and the
+    source panel is headed by the dataset, with readable UTC dates.
+  - **Waiting:** shows three steps instead of a spinner.
+  - **Refusals and errors:** every refusal offers Rephrase or Browse by publisher, and failed or
+    expired results offer Ask again.
+  - **Browse:** gets jump links and an accent-insensitive publisher filter.
+  - **Results can be shared:** each one has a link (kept for 15 minutes) and a Copy citation
+    button.
 
 ### Added
 
 - `make eval-planner` (`run_eval --planner`): an end-to-end gate on the 26 golden questions and
   8 new negative ones, counting a wrong dataset whether the planner matched it or called it
   unsupported. It exits non-zero on a wrong match, a degraded plan, or an unreachable LLM.
+
+### Fixed
+
+- **`/stats` bars drew at full width whatever their value**, because the strict CSP
+  (`style-src 'self'`) dropped their inline `style="width:N%"`. They are now SVG rects, and a
+  test fails on any inline `style` or `<style>` in a template. The `<style>` htmx injects is
+  also disabled, which removes a CSP console error on every page.
 
 ### Removed
 
